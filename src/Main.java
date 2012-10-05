@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -23,6 +24,7 @@ import javax.swing.JComboBox;
 import javax.swing.JButton;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.event.ChangeListener;
@@ -166,11 +168,11 @@ class Main  extends JFrame{
         setup.add(newProcProb, "cell 0 10,growx");
         
         // Input for the number of possible processes
-        JLabel lblMaxNumberOf = new JLabel("Max Number of New Processes");
+        JLabel lblMaxNumberOf = new JLabel("Time Interval for New Process (ms)");
         setup.add(lblMaxNumberOf, "cell 0 11");
         
-        newProcsModel = new SpinnerNumberModel(2,0,100,1);
-        JSpinner newProcs = new JSpinner();
+        newProcsModel = new SpinnerNumberModel(100,100,30000,100);
+        JSpinner newProcs = new JSpinner(newProcsModel);
         setup.add(newProcs, "cell 0 12,growx");
         
         // Set the simulation delay multiplier
@@ -205,9 +207,20 @@ class Main  extends JFrame{
          * 
          */
         private class Worker extends SwingWorker<Void, String> {
-
+            ArrayList<Proc> newProcesses = new ArrayList<Proc>();
             @Override
             protected Void doInBackground() throws Exception {
+                
+                Timer t = new Timer(newProcsModel.getNumber().intValue()*delayModel.getNumber().intValue(),new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent arg0) {
+                        Random rng = new Random();
+                        if(rng.nextInt(100) <= newProcProbModel.getNumber().intValue()) {
+                            newProcesses.add(new Proc(pid++,rng.nextInt(1000)));
+                        }
+                    }
+                });
+                t.start();
                 switch (algorithmSelect.getSelectedIndex()) {
                 case 0:
                     // Run round robin
@@ -260,6 +273,14 @@ class Main  extends JFrame{
                 
                 return null;
             }
+            /**
+             * Add all the waiting processes to the main queue
+             */
+            private void recruitProcess() {
+                for (Proc p : newProcesses) {
+                    addProcess(p);
+                }
+            }
             @Override
             protected void process(List<String> chunk) {
                 for (String string : chunk) {
@@ -276,18 +297,13 @@ class Main  extends JFrame{
             }    
     }
     /**
-     * Recruit new processes. This should not be done during
-     * processlist iteration as it will break the list iterator
-     * 
-     * This will attempt to add as many processes as the user has 
-     * defined with the given probability. 
+     * Add a specific process to the simulation
+     * @param p the process to add
      */
-    private void recruitProcess() {
-        Random rng = new Random();
-        for(int i = 0; i < newProcsModel.getNumber().intValue(); i++) {
-            if(rng.nextInt(100) <= newProcProbModel.getNumber().intValue())
-                addProcess();
-        }
+    private void addProcess(Proc p) {
+        processList.add(p);
+        textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
+        simulation.add(p);
     }
     /**
      * Add a new process to the simulation
@@ -298,9 +314,7 @@ class Main  extends JFrame{
     private void addProcess() {
         Random rng = new Random();
         Proc p = new Proc(pid++,rng.nextInt(1000));
-        processList.add(p);
-        textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
-        simulation.add(p);
+        addProcess(p);
     }
     /***
      * This will reset the simulation and setup the processes
