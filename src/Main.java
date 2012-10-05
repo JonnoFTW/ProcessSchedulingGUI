@@ -352,7 +352,7 @@ class Main  extends JFrame{
             add(timeLbl);
         }
         /**
-         * Finish the process
+         * Finish the process by simulating its remaining time
          * @throws InterruptedException 
          */
         public void finish() throws InterruptedException {
@@ -361,13 +361,28 @@ class Main  extends JFrame{
         public String toString() {
             return String.format("%d,%d",id,time);
         }
-        
+        /**
+         * 
+         * @return the id of this process
+         */
         public int getId() {
             return id;
         }
+        /**
+         * Changes the color of the border
+         * @param c the color to use
+         */
         private void resetBorder(Color c) {
             setBorder(BorderFactory.createLineBorder(c, 3));
         }
+        /**
+         * Subtract the time from this process, simulating the execution
+         * by sleeping the current thread
+         * @param q the time to execute for
+         * @return true if the process finished, otherwise false
+         * @throws InterruptedException if sleep throws an exception
+         * 
+         */
         public boolean takeTime(int q) throws InterruptedException {
             resetBorder(Color.red);
             time -= q;
