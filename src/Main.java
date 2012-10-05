@@ -210,7 +210,11 @@ class Main  extends JFrame{
             ArrayList<Proc> newProcesses = new ArrayList<Proc>();
             @Override
             protected Void doInBackground() throws Exception {
-                
+                /**
+                 * Add new processes to the waiting queue
+                 * at user defined interval with user defined 
+                 * probability
+                 */
                 Timer t = new Timer(newProcsModel.getNumber().intValue()*delayModel.getNumber().intValue(),new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent arg0) {
@@ -280,6 +284,7 @@ class Main  extends JFrame{
                 for (Proc p : newProcesses) {
                     addProcess(p);
                 }
+                newProcesses.clear();
             }
             @Override
             protected void process(List<String> chunk) {
