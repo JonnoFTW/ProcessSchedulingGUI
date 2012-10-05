@@ -230,7 +230,20 @@ class Main  extends JFrame{
                 case 0:
                     // Run round robin
                     while(!processList.isEmpty()) {
-                        ListIterator<Proc> it = processList.listIterator();
+                        ListIterator<Proc> it;
+                        int adding = newProcesses.size();
+                        int oldsize = processList.size();
+                        recruitProcess();
+                        // If newprocesses has elements waiting, we need to do them first
+                        if(adding == 0)  {
+                            // Start from the start
+                            it = processList.listIterator();
+                        } else {
+                            // Start at the most recently added processes
+                            it = processList.listIterator(oldsize);
+                        }
+                        
+                        
                         while(it.hasNext()) {
                             int quantum = quantumModel.getNumber().intValue();
                             Proc p = it.next(); 
@@ -244,7 +257,6 @@ class Main  extends JFrame{
                                 it.remove();
                             } 
                         }
-                        recruitProcess();
                     }
                     break;
                 case 1:
