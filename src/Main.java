@@ -208,6 +208,7 @@ class Main  extends JFrame{
          */
         private class Worker extends SwingWorker<Void, String> {
             ArrayList<Proc> newProcesses = new ArrayList<Proc>();
+            Timer t;
             @Override
             protected Void doInBackground() throws Exception {
                 /**
@@ -215,7 +216,7 @@ class Main  extends JFrame{
                  * at user defined interval with user defined 
                  * probability
                  */
-                Timer t = new Timer(newProcsModel.getNumber().intValue()*delayModel.getNumber().intValue(),new ActionListener() {
+                t = new Timer(newProcsModel.getNumber().intValue()*delayModel.getNumber().intValue(),new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent arg0) {
                         Random rng = new Random();
@@ -298,6 +299,7 @@ class Main  extends JFrame{
                 tglbtnStart.setText("Start");
                 tglbtnStart.setSelected(false);
                 isStarted = false;
+                t.stop();
                 publish("Simulation Complete");
             }    
     }
