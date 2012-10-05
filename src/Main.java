@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -160,7 +161,7 @@ class Main  extends JFrame{
         setup.add(processCount, "cell 0 8,growx");
         
         // New processes can be randomly added with a given probability
-        JLabel lblProbabilityOfNew = new JLabel("Probability of New Process");
+        JLabel lblProbabilityOfNew = new JLabel("Probability of New Process (%)");
         setup.add(lblProbabilityOfNew, "cell 0 9");
         
         newProcProbModel = new SpinnerNumberModel(25,0,100,1);
@@ -207,7 +208,6 @@ class Main  extends JFrame{
          * 
          */
         private class Worker extends SwingWorker<Void, String> {
-            ArrayList<Proc> newProcesses = new ArrayList<Proc>();
             Timer t;
             @Override
             protected Void doInBackground() throws Exception {
@@ -221,48 +221,44 @@ class Main  extends JFrame{
                     public void actionPerformed(ActionEvent arg0) {
                         Random rng = new Random();
                         if(rng.nextInt(100) <= newProcProbModel.getNumber().intValue()) {
-                            newProcesses.add(new Proc(pid++,rng.nextInt(1000)));
+                            addProcess();
                         }
                     }
                 });
                 t.start();
+
+                int last = 0;
                 switch (algorithmSelect.getSelectedIndex()) {
                 case 0:
                     // Run round robin
                     while(!processList.isEmpty()) {
-                        ListIterator<Proc> it;
-                        int adding = newProcesses.size();
-                        int oldsize = processList.size();
-                        recruitProcess();
-                        // If newprocesses has elements waiting, we need to do them first
-                        if(adding == 0)  {
-                            // Start from the start
-                            it = processList.listIterator();
-                        } else {
-                            // Start at the most recently added processes
-                            it = processList.listIterator(oldsize);
-                        }
-                        
-                        
-                        while(it.hasNext()) {
-                            int quantum = quantumModel.getNumber().intValue();
-                            Proc p = it.next(); 
-                            int sleep = quantum;
-                            if(p.time - quantum <= 0) {
-                                sleep = p.time;
+                        ListIterator<Proc> it = processList.listIterator(last);
+                        try{
+                            while(it.hasNext()) {
+                                int quantum = quantumModel.getNumber().intValue();
+                                Proc p = it.next(); 
+                                last++;
+                                int sleep = quantum;
+                                if(p.time - quantum <= 0) {
+                                    sleep = p.time;
+                                }
+                                publish("Process "+p.id+" executed for: "+sleep+"ms");
+                                if(p.takeTime(quantum)){
+                                    publish("Process "+p.id+" finished");
+                                    it.remove();
+                                    last--;
+                                } 
                             }
-                            publish("Process "+p.id+" executed for: "+sleep+"ms");
-                            if(p.takeTime(quantum)){
-                                publish("Process "+p.id+" finished");
-                                it.remove();
-                            } 
+                            last = 0;
+                        } catch (ConcurrentModificationException e) {
+                            // An element has been added, just start the iteration again from
+                            // where we were up to using the last variable
                         }
                     }
                     break;
                 case 1:
                     // Run FIFO
                     while(!processList.isEmpty()) {
-                        recruitProcess();
                         Proc p = processList.removeFirst();
                         publish("Process "+p.id+" finished in "+p.time+"ms");
                         p.finish();
@@ -271,7 +267,6 @@ class Main  extends JFrame{
                 case 2:
                     // Run SJF
                     while(!processList.isEmpty()) {
-                        recruitProcess();
                         ListIterator<Proc> it = processList.listIterator();
                         Proc shortest = it.next();
                         while(it.hasNext()) {
@@ -290,15 +285,7 @@ class Main  extends JFrame{
                 
                 return null;
             }
-            /**
-             * Add all the waiting processes to the main queue
-             */
-            private void recruitProcess() {
-                for (Proc p : newProcesses) {
-                    addProcess(p);
-                }
-                newProcesses.clear();
-            }
+            
             @Override
             protected void process(List<String> chunk) {
                 for (String string : chunk) {
@@ -323,6 +310,7 @@ class Main  extends JFrame{
         processList.add(p);
         textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
         simulation.add(p);
+        simulation.revalidate();
     }
     /**
      * Add a new process to the simulation
@@ -349,7 +337,6 @@ class Main  extends JFrame{
         for(int i = 0; i < procs; i++ ) {
             addProcess();
         }
-        simulation.revalidate();
     }
     /**
      * This runs the process
