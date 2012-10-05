@@ -29,7 +29,15 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.text.DefaultCaret;
 
-// This is a class
+/**
+ * This is an application that simulates various process
+ * scheduling algorithms. All processes are randomly generated
+ * with a time of 1000ms or less. All processes are self managing
+ * JPanels that you can call takeTime or finish to simulate the running 
+ * of the process. The colour of the panel's border will change
+ * to green if it is waiting, red for executing, black for finished
+ *
+ */
 class Main  extends JFrame{
     /**
      * 
@@ -38,15 +46,27 @@ class Main  extends JFrame{
     // This is the time to run each process for
     private JPanel simulation;
     private JTextArea textArea;
+    // These could be placed in a prioritqueue or something to simulate
+    // more complex scheduling algorithms
     private LinkedList<Proc> processList = new LinkedList<Proc>();
+    // These are instance variables because other things need to access them
     private SpinnerNumberModel processModel, quantumModel,newProcProbModel,newProcsModel,delayModel;
+    // This is the worker that does the simulating work
     private Worker worker;
     private boolean isStarted = false;
     private JComboBox algorithmSelect;
     private JToggleButton tglbtnStart;
+    // Keep track of the pid we are up to
     private int pid = 0;
     
+    // The array of algorithm names is here for easy definition
+    private String[] algStrings = { "Round Robin",  "FIFO", "SJF" };
+    
+    /**
+     * Run the application
+     */
     Main(){
+        // Use the OS look and feel
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (ClassNotFoundException e) {
@@ -63,6 +83,8 @@ class Main  extends JFrame{
         getContentPane().add(panel, BorderLayout.CENTER);
         panel.setLayout(new BorderLayout(0, 0));
         
+        // Have a panel on the right side that 
+        // allows the user to configure the simulation
         JPanel setup = new JPanel();
         panel.setPreferredSize(new Dimension(800,500));
         setup.setPreferredSize(new Dimension(275,500));
@@ -72,6 +94,7 @@ class Main  extends JFrame{
         JLabel lblSetup = new JLabel("Setup");
         setup.add(lblSetup, "cell 0 0");
         
+        // A reset button
         JButton btnGenereateProcesses = new JButton("Reset");
         btnGenereateProcesses.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -79,11 +102,13 @@ class Main  extends JFrame{
             }
         });
         setup.add(btnGenereateProcesses, "cell 0 1,growx");
-        
+        // A togglebutton to start/stop the simulation
         tglbtnStart = new JToggleButton("Start");
         tglbtnStart.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 if(tglbtnStart.isSelected()) {
+                    // We can only run the simulation 
+                    // once
                     if(!isStarted) {
                         worker = new Worker();
                         worker.execute();
@@ -100,6 +125,7 @@ class Main  extends JFrame{
         JLabel lblQuantum = new JLabel("Quantum (ms)");
         setup.add(lblQuantum, "cell 0 3");
         
+        // A spinner to let the user define the quantum
         quantumModel = new SpinnerNumberModel(250, 1, 1000, 10);
         JSpinner quantumSpinner = new JSpinner(quantumModel);
         setup.add(quantumSpinner, "cell 0 4,growx");
@@ -107,11 +133,16 @@ class Main  extends JFrame{
         JLabel lblAlgorithm = new JLabel("Algorithm");
         setup.add(lblAlgorithm, "cell 0 5");
         
-        String[] algStrings = { "Round Robin",  "FIFO", "SJF", };
+        // Allow the user to select what algorithm to use
         algorithmSelect = new JComboBox(algStrings);
+        algorithmSelect.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent arg0) {
+                setupProcesses();
+            }
+        });
         setup.add(algorithmSelect, "cell 0 6,growx");
         
-        
+        // Setup the number of initial processes
         JLabel lblProcesses = new JLabel("Initial Processes");
         setup.add(lblProcesses, "cell 0 7");
         
@@ -126,6 +157,7 @@ class Main  extends JFrame{
         });
         setup.add(processCount, "cell 0 8,growx");
         
+        // New processes can be randomly added with a given probability
         JLabel lblProbabilityOfNew = new JLabel("Probability of New Process");
         setup.add(lblProbabilityOfNew, "cell 0 9");
         
@@ -133,7 +165,7 @@ class Main  extends JFrame{
         JSpinner newProcProb = new JSpinner(newProcProbModel);
         setup.add(newProcProb, "cell 0 10,growx");
         
-        
+        // Input for the number of possible processes
         JLabel lblMaxNumberOf = new JLabel("Max Number of New Processes");
         setup.add(lblMaxNumberOf, "cell 0 11");
         
@@ -141,6 +173,7 @@ class Main  extends JFrame{
         JSpinner newProcs = new JSpinner();
         setup.add(newProcs, "cell 0 12,growx");
         
+        // Set the simulation delay multiplier
         JLabel lblSimulationDelay = new JLabel("Simulation Delay");
         setup.add(lblSimulationDelay, "cell 0 13");
         
@@ -151,6 +184,7 @@ class Main  extends JFrame{
         JScrollPane scrollPane = new JScrollPane();
         setup.add(scrollPane, "cell 0 15,grow");
         
+        // Have a textarea for loggin output
         textArea = new JTextArea();
         DefaultCaret caret = (DefaultCaret)textArea.getCaret();
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
@@ -166,7 +200,9 @@ class Main  extends JFrame{
         }; 
         /**
          * A SwingWorker that runs the simulation
-         *
+         * Uses the index of the algorithm select combobox
+         * to select which algorithm to run
+         * 
          */
         private class Worker extends SwingWorker<Void, String> {
 
@@ -239,6 +275,13 @@ class Main  extends JFrame{
                 publish("Simulation Complete");
             }    
     }
+    /**
+     * Recruit new processes. This should not be done during
+     * processlist iteration as it will break the list iterator
+     * 
+     * This will attempt to add as many processes as the user has 
+     * defined with the given probability. 
+     */
     private void recruitProcess() {
         Random rng = new Random();
         for(int i = 0; i < newProcsModel.getNumber().intValue(); i++) {
@@ -246,6 +289,12 @@ class Main  extends JFrame{
                 addProcess();
         }
     }
+    /**
+     * Add a new process to the simulation
+     * Will increment the pid and give a random time between
+     * 0 and 1000
+     */
+    
     private void addProcess() {
         Random rng = new Random();
         Proc p = new Proc(pid++,rng.nextInt(1000));
@@ -253,6 +302,10 @@ class Main  extends JFrame{
         textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
         simulation.add(p);
     }
+    /***
+     * This will reset the simulation and setup the processes
+     * according to the user inputs
+     */
     private void setupProcesses() {
         pid = 0;
         int procs = processModel.getNumber().intValue();
@@ -277,6 +330,8 @@ class Main  extends JFrame{
     }
     /**
      * This class represents a process, each process has an id and time remaining
+     * It also has a border that indicates if it is running, finished or waiting.
+     * These are all managed internally.
      */
     public class Proc extends JPanel{
         
