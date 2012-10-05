@@ -61,7 +61,7 @@ class Main  extends JFrame{
     private JToggleButton tglbtnStart;
     // Keep track of the pid we are up to
     private int pid = 0;
-    
+    int last = 0;
     // The array of algorithm names is here for easy definition
     private String[] algStrings = { "Round Robin",  "FIFO", "SJF" };
     
@@ -227,7 +227,7 @@ class Main  extends JFrame{
                 });
                 t.start();
 
-                int last = 0;
+                
                 switch (algorithmSelect.getSelectedIndex()) {
                 case 0:
                     // Run round robin
@@ -299,7 +299,10 @@ class Main  extends JFrame{
                 tglbtnStart.setSelected(false);
                 isStarted = false;
                 t.stop();
-                publish("Simulation Complete");
+                if(processList.isEmpty())
+                    publish("Simulation Complete");
+                else
+                    publish("Simulation Paused");
             }    
     }
     /**
@@ -400,19 +403,24 @@ class Main  extends JFrame{
          * by sleeping the current thread
          * @param q the time to execute for
          * @return true if the process finished, otherwise false
-         * @throws InterruptedException if sleep throws an exception
          * 
          */
-        public boolean takeTime(int q) throws InterruptedException {
+        public boolean takeTime(int q)  {
             resetBorder(Color.red);
             time -= q;
             int delayFactor = delayModel.getNumber().intValue();
-            if(time <= 0) {
-                Thread.sleep((time+q)*delayFactor);
-                resetBorder(Color.black);
-                time = 0;
-            } else {
-                Thread.sleep(q*delayFactor);
+            try {
+                if(time <= 0) {
+                    Thread.sleep((time+q)*delayFactor);
+                    resetBorder(Color.black);
+                    time = 0;
+                } else {
+                    Thread.sleep(q*delayFactor);
+                    resetBorder(Color.green);
+                }
+            } catch (InterruptedException e) {
+                // Reset colour when sleep is interrupted,
+                // probably because the stop button was pressed
                 resetBorder(Color.green);
             }
             timeLbl.setText(""+time);
