@@ -209,6 +209,8 @@ class Main  extends JFrame{
          */
         private class Worker extends SwingWorker<Void, String> {
             Timer t;
+            boolean cancelled = false;
+            boolean addingA = true;
             @Override
             protected Void doInBackground() throws Exception {
                 /**
@@ -216,12 +218,19 @@ class Main  extends JFrame{
                  * at user defined interval with user defined 
                  * probability
                  */
+                final ArrayList<Proc> waitingProcessA = new ArrayList<Proc>() ;
+                final ArrayList<Proc> waitingProcessB = new ArrayList<Proc>() ;
+
                 t = new Timer(newProcsModel.getNumber().intValue()*delayModel.getNumber().intValue(),new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent arg0) {
                         Random rng = new Random();
                         if(rng.nextInt(100) <= newProcProbModel.getNumber().intValue()) {
-                            addProcess();
+                            if(addingA) {
+                                waitingProcessA.add(addProcess());
+                            } else{
+                                waitingProcessB.add(addProcess());
+                            }
                         }
                     }
                 });
@@ -231,20 +240,19 @@ class Main  extends JFrame{
                 switch (algorithmSelect.getSelectedIndex()) {
                 case 0:
                     // Run round robin
+                    int quantum = quantumModel.getNumber().intValue();
                     while(!processList.isEmpty()) {
                         ListIterator<Proc> it = processList.listIterator(last);
                         try{
                             while(it.hasNext()) {
-                                int quantum = quantumModel.getNumber().intValue();
+                                if(cancelled)
+                                    return null;
+                                if(!waitingProcessA.isEmpty() || !waitingProcessB.isEmpty())
+                                    throw new ConcurrentModificationException();
                                 Proc p = it.next(); 
                                 last++;
-                                int sleep = quantum;
-                                if(p.time - quantum <= 0) {
-                                    sleep = p.time;
-                                }
-                                publish("Process "+p.id+" executed for: "+sleep+"ms");
+                                // If the process is finished, remove it from the list
                                 if(p.takeTime(quantum)){
-                                    publish("Process "+p.id+" finished");
                                     it.remove();
                                     last--;
                                 } 
@@ -253,6 +261,20 @@ class Main  extends JFrame{
                         } catch (ConcurrentModificationException e) {
                             // An element has been added, just start the iteration again from
                             // where we were up to using the last variable
+                            // This is stupid and not actually RR, but generated processes
+                            // are executed for the quantum when they are generated
+                            ArrayList<Proc> w;
+                            if(addingA)  {
+                                w = waitingProcessA;
+                                addingA  =false;
+                            } else         {
+                                w = waitingProcessB;
+                                addingA = true;
+                            }
+                            for (Proc proc : w) {
+                                proc.takeTime(quantum);
+                            }
+                            w.clear();
                         }
                     }
                     break;
@@ -260,7 +282,6 @@ class Main  extends JFrame{
                     // Run FIFO
                     while(!processList.isEmpty()) {
                         Proc p = processList.removeFirst();
-                        publish("Process "+p.id+" finished in "+p.time+"ms");
                         p.finish();
                     }
                     break;
@@ -274,7 +295,6 @@ class Main  extends JFrame{
                             if(p.time < shortest.time)
                                 shortest = p;
                         }
-                        publish("Process "+shortest.id+" finished in "+shortest.time+"ms");
                         shortest.finish();
                         // Takes O(n) time to remove
                         processList.remove(shortest);
@@ -299,6 +319,7 @@ class Main  extends JFrame{
                 tglbtnStart.setSelected(false);
                 isStarted = false;
                 t.stop();
+                cancelled = true;
                 if(processList.isEmpty())
                     publish("Simulation Complete");
                 else
@@ -319,12 +340,14 @@ class Main  extends JFrame{
      * Add a new process to the simulation
      * Will increment the pid and give a random time between
      * 0 and 1000
+     * @return the process that was added
      */
     
-    private void addProcess() {
+    private Proc addProcess() {
         Random rng = new Random();
         Proc p = new Proc(pid++,rng.nextInt(1000));
         addProcess(p);
+        return p;
     }
     /***
      * This will reset the simulation and setup the processes
@@ -356,7 +379,7 @@ class Main  extends JFrame{
      * It also has a border that indicates if it is running, finished or waiting.
      * These are all managed internally.
      */
-    public class Proc extends JPanel{
+    private class Proc extends JPanel{
         
         /**
          * 
@@ -408,12 +431,13 @@ class Main  extends JFrame{
         public boolean takeTime(int q)  {
             resetBorder(Color.red);
             time -= q;
+            int sleep =q;
             int delayFactor = delayModel.getNumber().intValue();
             try {
                 if(time <= 0) {
+                    sleep += time;
                     Thread.sleep((time+q)*delayFactor);
                     resetBorder(Color.black);
-                    time = 0;
                 } else {
                     Thread.sleep(q*delayFactor);
                     resetBorder(Color.green);
@@ -422,6 +446,11 @@ class Main  extends JFrame{
                 // Reset colour when sleep is interrupted,
                 // probably because the stop button was pressed
                 resetBorder(Color.green);
+            }
+            textArea.append("Process "+id+" executed for: "+sleep+"ms\n");
+            if(time <= 0) {
+                textArea.append("Process "+id+" finished\n");
+                time = 0;
             }
             timeLbl.setText(""+time);
             if(time == 0)
