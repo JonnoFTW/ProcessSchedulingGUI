@@ -196,7 +196,7 @@ class Main  extends JFrame{
         panel.add(simulation, BorderLayout.CENTER);
         simulation.setLayout(new GridLayout(0, 5, 4, 4));
 
-        setupProcesses();
+   //     setupProcesses();
             
             
         }; 
