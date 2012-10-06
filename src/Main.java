@@ -439,7 +439,6 @@ class Main  extends JFrame{
                     Thread.sleep((time+q)*delayFactor);
                 } else {
                     Thread.sleep(q*delayFactor);
-                    resetBorder(Color.green);
                 }
             } catch (InterruptedException e) {
                 // Reset colour when sleep is interrupted,
@@ -451,6 +450,8 @@ class Main  extends JFrame{
                 resetBorder(Color.black);
                 textArea.append("Process "+id+" finished\n");
                 time = 0;
+            } else {
+                resetBorder(Color.green);
             }
             timeLbl.setText(""+time);
             if(time == 0)
