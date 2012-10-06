@@ -437,7 +437,6 @@ class Main  extends JFrame{
                 if(time <= 0) {
                     sleep += time;
                     Thread.sleep((time+q)*delayFactor);
-                    resetBorder(Color.black);
                 } else {
                     Thread.sleep(q*delayFactor);
                     resetBorder(Color.green);
@@ -449,6 +448,7 @@ class Main  extends JFrame{
             }
             textArea.append("Process "+id+" executed for: "+sleep+"ms\n");
             if(time <= 0) {
+                resetBorder(Color.black);
                 textArea.append("Process "+id+" finished\n");
                 time = 0;
             }
