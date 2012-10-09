@@ -245,8 +245,7 @@ class Main  extends JFrame{
                         ListIterator<Proc> it = processList.listIterator(last);
                         try{
                             while(it.hasNext()) {
-                                if(cancelled)
-                                    return null;
+                                if(cancelled) return null;
                                 if(!waitingProcessA.isEmpty() || !waitingProcessB.isEmpty())
                                     throw new ConcurrentModificationException();
                                 Proc p = it.next(); 
@@ -281,6 +280,7 @@ class Main  extends JFrame{
                 case 1:
                     // Run FIFO
                     while(!processList.isEmpty()) {
+                        if(cancelled) return null;
                         Proc p = processList.removeFirst();
                         p.finish();
                     }
@@ -291,6 +291,7 @@ class Main  extends JFrame{
                         ListIterator<Proc> it = processList.listIterator();
                         Proc shortest = it.next();
                         while(it.hasNext()) {
+                            if(cancelled) return null;
                             Proc p = it.next();
                             if(p.time < shortest.time)
                                 shortest = p;
