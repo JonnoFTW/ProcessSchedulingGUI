@@ -209,7 +209,6 @@ class Main  extends JFrame{
          */
         private class Worker extends SwingWorker<Void, String> {
             Timer t;
-            boolean cancelled = false;
             boolean addingA = true;
             @Override
             protected Void doInBackground() throws Exception {
@@ -245,7 +244,7 @@ class Main  extends JFrame{
                         ListIterator<Proc> it = processList.listIterator(last);
                         try{
                             while(it.hasNext()) {
-                                if(cancelled) return null;
+                                if(isCancelled()) return null;
                                 if(!waitingProcessA.isEmpty() || !waitingProcessB.isEmpty())
                                     throw new ConcurrentModificationException();
                                 Proc p = it.next(); 
@@ -280,7 +279,7 @@ class Main  extends JFrame{
                 case 1:
                     // Run FIFO
                     while(!processList.isEmpty()) {
-                        if(cancelled) return null;
+                        if(isCancelled()) return null;
                         Proc p = processList.removeFirst();
                         p.finish();
                     }
@@ -291,7 +290,7 @@ class Main  extends JFrame{
                         ListIterator<Proc> it = processList.listIterator();
                         Proc shortest = it.next();
                         while(it.hasNext()) {
-                            if(cancelled) return null;
+                            if(isCancelled()) return null;
                             Proc p = it.next();
                             if(p.time < shortest.time)
                                 shortest = p;
@@ -320,7 +319,6 @@ class Main  extends JFrame{
                 tglbtnStart.setSelected(false);
                 isStarted = false;
                 t.stop();
-                cancelled = true;
                 if(processList.isEmpty())
                     publish("Simulation Complete");
                 else
