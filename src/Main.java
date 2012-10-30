@@ -31,6 +31,8 @@ import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.text.DefaultCaret;
+import javax.swing.JTabbedPane;
+import javax.swing.JSeparator;
 
 /**
  * This is an application that simulates various process
@@ -47,7 +49,7 @@ class Main  extends JFrame{
      */
     private static final long serialVersionUID = -4166466089214148491L;
     // This is the time to run each process for
-    private JPanel simulation;
+    private JPanel panel_processes;
     private JTextArea textArea;
     // These could be placed in a prioritqueue or something to simulate
     // more complex scheduling algorithms
@@ -92,7 +94,7 @@ class Main  extends JFrame{
         panel.setPreferredSize(new Dimension(800,500));
         setup.setPreferredSize(new Dimension(275,500));
         panel.add(setup, BorderLayout.EAST);
-        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][grow]"));
+        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][grow]"));
         
         JLabel lblSetup = new JLabel("Setup");
         setup.add(lblSetup, "cell 0 0");
@@ -125,16 +127,19 @@ class Main  extends JFrame{
         });
         setup.add(tglbtnStart, "cell 0 2,growx");
         
+        JSeparator separator_1 = new JSeparator();
+        setup.add(separator_1, "cell 0 3,growx");
+        
         JLabel lblQuantum = new JLabel("Quantum (ms)");
-        setup.add(lblQuantum, "cell 0 3");
+        setup.add(lblQuantum, "cell 0 4");
         
         // A spinner to let the user define the quantum
         quantumModel = new SpinnerNumberModel(250, 1, 1000, 10);
         JSpinner quantumSpinner = new JSpinner(quantumModel);
-        setup.add(quantumSpinner, "cell 0 4,growx");
+        setup.add(quantumSpinner, "cell 0 5,growx");
         
-        JLabel lblAlgorithm = new JLabel("Algorithm");
-        setup.add(lblAlgorithm, "cell 0 5");
+        JLabel lblAlgorithm = new JLabel("Process Scheduling Algorithm");
+        setup.add(lblAlgorithm, "cell 0 6");
         
         // Allow the user to select what algorithm to use
         algorithmSelect = new JComboBox(algStrings);
@@ -143,11 +148,11 @@ class Main  extends JFrame{
                 setupProcesses();
             }
         });
-        setup.add(algorithmSelect, "cell 0 6,growx");
+        setup.add(algorithmSelect, "cell 0 7,growx");
         
         // Setup the number of initial processes
         JLabel lblProcesses = new JLabel("Initial Processes");
-        setup.add(lblProcesses, "cell 0 7");
+        setup.add(lblProcesses, "cell 0 8");
         
         processModel = new SpinnerNumberModel(10, 1, 100, 1);
         JSpinner processCount = new JSpinner(processModel);
@@ -158,34 +163,40 @@ class Main  extends JFrame{
                 setupProcesses();
             }
         });
-        setup.add(processCount, "cell 0 8,growx");
+        setup.add(processCount, "cell 0 9,growx");
         
         // New processes can be randomly added with a given probability
         JLabel lblProbabilityOfNew = new JLabel("Probability of New Process (%)");
-        setup.add(lblProbabilityOfNew, "cell 0 9");
+        setup.add(lblProbabilityOfNew, "cell 0 10");
         
         newProcProbModel = new SpinnerNumberModel(25,0,100,1);
         JSpinner newProcProb = new JSpinner(newProcProbModel);
-        setup.add(newProcProb, "cell 0 10,growx");
+        setup.add(newProcProb, "cell 0 11,growx");
         
         // Input for the number of possible processes
         JLabel lblMaxNumberOf = new JLabel("Time Interval for New Process (ms)");
-        setup.add(lblMaxNumberOf, "cell 0 11");
+        setup.add(lblMaxNumberOf, "cell 0 12");
         
         newProcsModel = new SpinnerNumberModel(100,100,30000,100);
         JSpinner newProcs = new JSpinner(newProcsModel);
-        setup.add(newProcs, "cell 0 12,growx");
+        setup.add(newProcs, "cell 0 13,growx");
         
         // Set the simulation delay multiplier
         JLabel lblSimulationDelay = new JLabel("Simulation Delay");
-        setup.add(lblSimulationDelay, "cell 0 13");
+        setup.add(lblSimulationDelay, "cell 0 14");
         
         delayModel = new SpinnerNumberModel(5,1,20,1);
         JSpinner delay = new JSpinner(delayModel);
-        setup.add(delay, "cell 0 14,growx");
+        setup.add(delay, "cell 0 15,growx");
+        
+        JSeparator separator = new JSeparator();
+        setup.add(separator, "cell 0 16,growx");
+        
+        JLabel lblMemoryAllocationAlgorithm = new JLabel("Memory Allocation Algorithm");
+        setup.add(lblMemoryAllocationAlgorithm, "cell 0 17");
         
         JScrollPane scrollPane = new JScrollPane();
-        setup.add(scrollPane, "cell 0 15,grow");
+        setup.add(scrollPane, "cell 0 18,grow");
         
         // Have a textarea for loggin output
         textArea = new JTextArea();
@@ -193,9 +204,15 @@ class Main  extends JFrame{
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
         scrollPane.setViewportView(textArea);
         
-        simulation = new JPanel();
-        panel.add(simulation, BorderLayout.CENTER);
-        simulation.setLayout(new GridLayout(0, 5, 4, 4));
+        JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        panel.add(tabbedPane, BorderLayout.CENTER);
+        
+        panel_processes = new JPanel();
+        tabbedPane.addTab("Processes", null, panel_processes, null);
+        panel_processes.setLayout(new GridLayout(0, 5, 4, 4));
+        
+        JPanel panel_memory = new JPanel();
+        tabbedPane.addTab("Memory", null, panel_memory, null);
 
    //     setupProcesses();
             
@@ -332,8 +349,8 @@ class Main  extends JFrame{
     private void addProcess(Proc p) {
         processList.add(p);
         textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
-        simulation.add(p);
-        simulation.revalidate();
+        panel_processes.add(p);
+        panel_processes.revalidate();
     }
     /**
      * Add a new process to the simulation
@@ -343,8 +360,7 @@ class Main  extends JFrame{
      */
     
     private Proc addProcess() {
-        Random rng = new Random();
-        Proc p = new Proc(pid++,rng.nextInt(1000));
+        Proc p = new Proc(pid++);
         addProcess(p);
         return p;
     }
@@ -357,12 +373,32 @@ class Main  extends JFrame{
         int procs = processModel.getNumber().intValue();
         processList.clear();
         textArea.setText("");
-        simulation.removeAll();
+        panel_processes.removeAll();
         
         for(int i = 0; i < procs; i++ ) {
             addProcess();
         }
     }
+    /**
+     * This will reset the memory
+     * 
+     */
+    private void setupMemory() {
+        int memorySize = 0;
+        byte[] memory = new byte[memorySize];
+    
+    }
+    /**
+     * Allocates Memory to a given process
+     * @param p
+     * @param blocks
+     * @return
+     */
+    private boolean allocateMemory(Proc p, int blocks ) {
+        return true;
+        
+    }
+    
     /**
      * This runs the process
      * @param args
@@ -385,9 +421,10 @@ class Main  extends JFrame{
          */
         private static final long serialVersionUID = -2070799490577412344L;
         private int time,id;
+        private Random rng = new Random();
         private JLabel timeLbl, idLbl;
-        Proc(int id,int t) {
-            time = t;
+        Proc(int id) {
+            time = rng.nextInt(10);
             this.id = id;
             setLayout(new GridLayout(2,1));
             resetBorder(Color.green);
