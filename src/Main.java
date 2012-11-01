@@ -51,7 +51,7 @@ class Main  extends JFrame{
     // This is the time to run each process for
     private JPanel panel_processes;
     private JTextArea textArea;
-    // These could be placed in a prioritqueue or something to simulate
+    // These could be placed in a priority queue or something to similar
     // more complex scheduling algorithms
     private LinkedList<Proc> processList = new LinkedList<Proc>();
     // These are instance variables because other things need to access them
@@ -410,6 +410,8 @@ class Main  extends JFrame{
      * 
      */
     private void setupMemory() {
+        panel_memory.removeAll();
+        
         int memorySize = memorySizeModel.getNumber().intValue();
         int pageSize   = pageSizeModel.getNumber().intValue();
         int pages = memorySize/pageSize;
