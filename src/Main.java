@@ -210,7 +210,7 @@ class Main  extends JFrame{
         JLabel lblMemorySize = new JLabel("Memory Size (B)");
         setup.add(lblMemorySize, "cell 0 19");
         
-        memorySizeModel = new SpinnerNumberModel(128,16,4096,8);
+        memorySizeModel = new SpinnerNumberModel(512,16,4096,8);
         JSpinner spinner_memory_size = new JSpinner(memorySizeModel);
         setup.add(spinner_memory_size, "cell 0 20,growx");
         
@@ -438,6 +438,7 @@ class Main  extends JFrame{
             for (Block b : memoryBlocks) {
                 if(b.allocatedTo == null) {
                     b.allocateTo(p);
+                    p.memoryBlocks.add(b);
                     textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
                     toAllocate -= b.getBytes();
                     if(toAllocate <= 0)
@@ -467,7 +468,7 @@ class Main  extends JFrame{
     private void deallocateMemory(Proc p) {
         for (Block i : p.memoryBlocks) {
             textArea.append(String.format("Block %d deallocated from process %d\n", i.getId(),p.getId()));
-            i.setBackground(Color.gray);
+            i.setBackground(Color.LIGHT_GRAY);
             i.allocateTo(null);
         }
     }
@@ -557,7 +558,7 @@ class Main  extends JFrame{
         Proc(int id) {
             super(id);
             time = rng.nextInt(1000);
-            processSize = rng.nextInt(512);
+            processSize = rng.nextInt(64);
             setBackground(color);
             this.id = id;
             setLayout(new GridLayout(0,1));
@@ -566,7 +567,7 @@ class Main  extends JFrame{
             add(timeLbl);
             add(new JLabel(processSize+"B",JLabel.CENTER));
             if(allocateMemory(this, processSize))
-                textArea.append("Process "+id+" allocated all memory");
+                textArea.append("Process "+id+" allocated all memory\n");
             else    
                 textArea.append("Process "+id+" could not allocate memory\n");
         }
