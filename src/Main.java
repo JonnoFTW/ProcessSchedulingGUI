@@ -375,7 +375,7 @@ class Main  extends JFrame{
      */
     private void addProcess(Proc p) {
         processList.add(p);
-        textArea.append("Added pid "+p.id+" with time "+p.time+"ms\n");
+        textArea.append("Added pid "+p.id+" with time "+p.time+"ms, size "+p.getProcessSize()+"B\n");
         panel_processes.add(p);
         panel_processes.revalidate();
     }
@@ -413,7 +413,7 @@ class Main  extends JFrame{
         int memorySize = memorySizeModel.getNumber().intValue();
         int pageSize   = pageSizeModel.getNumber().intValue();
         int pages = memorySize/pageSize;
-        textArea.append("Creating "+pages+" pages of size "+pageSize+"\n");
+        textArea.append("Creating "+pages+" pages of size "+pageSize+"B\n");
         memoryBlocks = new Block[pages];
         for (int i = 0; i < memoryBlocks.length; i++) {
             memoryBlocks[i] = new Block(i,pageSize);
@@ -429,7 +429,6 @@ class Main  extends JFrame{
     private boolean allocateMemory(Proc p, int bytes ) {
         // "First Fit", "Best Fit", "Worst Fit", "Next Fit"
         int toAllocate = bytes;
-        int pageSize = pageSizeModel.getNumber().intValue();
         switch (memoryAllocationAlg.getSelectedIndex()) {
         
         case 0:
@@ -547,7 +546,7 @@ class Main  extends JFrame{
      */
     private class Proc extends Cell{
         private static final long serialVersionUID = -2070799490577412344L;
-        private int time,id;
+        private int time,id, processSize;
         // Memory blocks that this process is using
         private LinkedList<Block> memoryBlocks = new LinkedList<Block>(); 
         private Random rng = new Random();
@@ -556,18 +555,21 @@ class Main  extends JFrame{
         Proc(int id) {
             super(id);
             time = rng.nextInt(1000);
-            int processSize = rng.nextInt(512);
+            processSize = rng.nextInt(512);
             setBackground(color);
             this.id = id;
             setLayout(new GridLayout(0,1));
             resetBorder(Color.green);
             timeLbl = new JLabel(time+"ms",JLabel.CENTER);
             add(timeLbl);
-            add(new JLabel(processSize+"kB",JLabel.CENTER));
+            add(new JLabel(processSize+"B",JLabel.CENTER));
             if(allocateMemory(this, processSize))
                 textArea.append("Process "+id+" allocated all memory");
             else    
                 textArea.append("Process "+id+" could not allocate memory\n");
+        }
+        private int getProcessSize() {
+            return processSize;
         }
         /**
          * Finish the process by simulating its remaining time
