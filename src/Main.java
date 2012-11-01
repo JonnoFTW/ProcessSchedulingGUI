@@ -66,6 +66,12 @@ class Main  extends JFrame{
     int last = 0;
     // The array of algorithm names is here for easy definition
     private String[] algStrings = { "Round Robin",  "FIFO", "SJF" };
+    private String[] memoryAllocationAlgorithms = {"First Fit", "Best Fit", "Worst Fit", "Next Fit"};
+    private SpinnerNumberModel pageSizeModel;
+    private SpinnerNumberModel memorySizeModel;
+    private Block[] memoryBlocks;
+    private JPanel panel_memory;
+    private JComboBox memoryAllocationAlg;
     
     /**
      * Run the application
@@ -91,10 +97,10 @@ class Main  extends JFrame{
         // Have a panel on the right side that 
         // allows the user to configure the simulation
         JPanel setup = new JPanel();
-        panel.setPreferredSize(new Dimension(800,500));
-        setup.setPreferredSize(new Dimension(275,500));
+        panel.setPreferredSize(new Dimension(900,900));
+        setup.setPreferredSize(new Dimension(300,500));
         panel.add(setup, BorderLayout.EAST);
-        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][grow]"));
+        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][][][][][][grow]"));
         
         JLabel lblSetup = new JLabel("Setup");
         setup.add(lblSetup, "cell 0 0");
@@ -103,6 +109,9 @@ class Main  extends JFrame{
         JButton btnGenereateProcesses = new JButton("Reset");
         btnGenereateProcesses.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+
+                textArea.setText("");
+                setupMemory();
                 setupProcesses();
             }
         });
@@ -195,10 +204,27 @@ class Main  extends JFrame{
         JLabel lblMemoryAllocationAlgorithm = new JLabel("Memory Allocation Algorithm");
         setup.add(lblMemoryAllocationAlgorithm, "cell 0 17");
         
-        JScrollPane scrollPane = new JScrollPane();
-        setup.add(scrollPane, "cell 0 18,grow");
+        memoryAllocationAlg = new JComboBox(memoryAllocationAlgorithms);
+        setup.add(memoryAllocationAlg, "cell 0 18,growx");
         
-        // Have a textarea for loggin output
+        JLabel lblMemorySize = new JLabel("Memory Size (B)");
+        setup.add(lblMemorySize, "cell 0 19");
+        
+        memorySizeModel = new SpinnerNumberModel(128,16,4096,8);
+        JSpinner spinner_memory_size = new JSpinner(memorySizeModel);
+        setup.add(spinner_memory_size, "cell 0 20,growx");
+        
+        JLabel lblPageSize = new JLabel("Page Size (B)");
+        setup.add(lblPageSize, "cell 0 21");
+        
+        pageSizeModel = new SpinnerNumberModel(8,1,Math.pow(2, 10),8);
+        JSpinner spinner_page_size = new JSpinner(pageSizeModel);
+        setup.add(spinner_page_size, "cell 0 22,growx");
+        
+        JScrollPane scrollPane = new JScrollPane();
+        setup.add(scrollPane, "cell 0 23,grow");
+        
+        // Have a textarea for logging output
         textArea = new JTextArea();
         DefaultCaret caret = (DefaultCaret)textArea.getCaret();
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
@@ -208,11 +234,12 @@ class Main  extends JFrame{
         panel.add(tabbedPane, BorderLayout.CENTER);
         
         panel_processes = new JPanel();
-        tabbedPane.addTab("Processes", null, panel_processes, null);
+        tabbedPane.addTab("Processes", null, panel_processes, "Processes");
         panel_processes.setLayout(new GridLayout(0, 5, 4, 4));
         
-        JPanel panel_memory = new JPanel();
-        tabbedPane.addTab("Memory", null, panel_memory, null);
+        panel_memory = new JPanel();
+        tabbedPane.addTab("Memory", null, panel_memory, "The memory");
+        panel_memory.setLayout(new GridLayout(0, 8, 4, 4));
 
    //     setupProcesses();
             
@@ -372,7 +399,6 @@ class Main  extends JFrame{
         pid = 0;
         int procs = processModel.getNumber().intValue();
         processList.clear();
-        textArea.setText("");
         panel_processes.removeAll();
         
         for(int i = 0; i < procs; i++ ) {
@@ -384,21 +410,66 @@ class Main  extends JFrame{
      * 
      */
     private void setupMemory() {
-        int memorySize = 0;
-        byte[] memory = new byte[memorySize];
-    
+        int memorySize = memorySizeModel.getNumber().intValue();
+        int pageSize   = pageSizeModel.getNumber().intValue();
+        int pages = memorySize/pageSize;
+        textArea.append("Creating "+pages+" pages of size "+pageSize+"\n");
+        memoryBlocks = new Block[pages];
+        for (int i = 0; i < memoryBlocks.length; i++) {
+            memoryBlocks[i] = new Block(i,pageSize);
+            panel_memory.add(memoryBlocks[i]);
+        }
     }
     /**
      * Allocates Memory to a given process
-     * @param p
-     * @param blocks
-     * @return
+     * @param p the process we are assigning memory for
+     * @param bytes The number of bytes used by this process
+     * @return true if the memory was successfully allocated
      */
-    private boolean allocateMemory(Proc p, int blocks ) {
-        return true;
+    private boolean allocateMemory(Proc p, int bytes ) {
+        // "First Fit", "Best Fit", "Worst Fit", "Next Fit"
+        int toAllocate = bytes;
+        int pageSize = pageSizeModel.getNumber().intValue();
+        switch (memoryAllocationAlg.getSelectedIndex()) {
+        
+        case 0:
+            // Allocated memory using first fit
+            for (Block b : memoryBlocks) {
+                if(b.allocatedTo == null) {
+                    b.allocateTo(p);
+                    textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
+                    toAllocate -= b.getBytes();
+                    if(toAllocate <= 0)
+                        return true;
+                }
+            }
+            break;
+        case 1:
+            // best fit
+            break;
+        case 2:
+            // worst fit;
+            break;
+        case 3:
+            // next fit
+            break;
+        default:
+            break;
+        }
+        return false;
         
     }
-    
+    /** 
+     * Removes the process' memory allocation. Memory is removed completely
+     * @param p the process to take the memory from
+     */
+    private void deallocateMemory(Proc p) {
+        for (Block i : p.memoryBlocks) {
+            textArea.append(String.format("Block %d deallocated from process %d\n", i.getId(),p.getId()));
+            i.setBackground(Color.gray);
+            i.allocateTo(null);
+        }
+    }
     /**
      * This runs the process
      * @param args
@@ -409,39 +480,16 @@ class Main  extends JFrame{
         r.pack();
         r.setVisible(true);
     }
-    /**
-     * This class represents a process, each process has an id and time remaining
-     * It also has a border that indicates if it is running, finished or waiting.
-     * These are all managed internally.
-     */
-    private class Proc extends JPanel{
-        
-        /**
-         * 
-         */
-        private static final long serialVersionUID = -2070799490577412344L;
-        private int time,id;
-        private Random rng = new Random();
-        private JLabel timeLbl, idLbl;
-        Proc(int id) {
-            time = rng.nextInt(10);
-            this.id = id;
-            setLayout(new GridLayout(2,1));
+    private class Cell extends JPanel {
+        protected JLabel timeLbl;
+        protected JLabel idLbl;
+        protected int id;
+        Cell(int id) {
+            setLayout(new GridLayout(0,1));
             resetBorder(Color.green);
             idLbl = new JLabel(""+id,JLabel.CENTER);
-            timeLbl = new JLabel(""+time,JLabel.CENTER);
+            this.id = id;
             add(idLbl);
-            add(timeLbl);
-        }
-        /**
-         * Finish the process by simulating its remaining time
-         * @throws InterruptedException 
-         */
-        public void finish() throws InterruptedException {
-            takeTime(time);
-        }
-        public String toString() {
-            return String.format("%d,%d",id,time);
         }
         /**
          * 
@@ -454,9 +502,104 @@ class Main  extends JFrame{
          * Changes the color of the border
          * @param c the color to use
          */
-        private void resetBorder(Color c) {
+        protected void resetBorder(Color c) {
             setBorder(BorderFactory.createLineBorder(c, 3));
         }
+    }
+    /**
+     * A block of memory
+     * @author Jonathan
+     *
+     */
+    private class Block extends Cell {
+        private Proc allocatedTo = null;
+        private JLabel processLbl = new JLabel("",JLabel.CENTER);
+        // A block of bytes for use later
+        private byte[] bytes;
+        Block(int id, int bytesUsed) {
+            super(id);
+            bytes = new byte[bytesUsed];
+            setToolTipText(String.format("Memory block %d starting at %d", id, id*pageSizeModel.getNumber().intValue()));
+            add(processLbl);
+            resetBorder(Color.black);
+        }
+        /**
+         * Return the number of bytes consumed by this block
+         */
+        public int getBytes() {
+            return bytes.length;
+        }
+        public void allocateTo(Proc p) {
+            allocatedTo = p;
+            if(p == null) {
+                processLbl.setText("");
+                setBackground(Color.gray);
+            } else {
+                processLbl.setText(""+p.getId());
+                setBackground(p.getColor());
+            }
+        }
+    }
+    /**
+     * This class represents a process, each process has an id and time remaining
+     * It also has a border that indicates if it is running, finished or waiting.
+     * These are all managed internally.
+     */
+    private class Proc extends Cell{
+        private static final long serialVersionUID = -2070799490577412344L;
+        private int time,id;
+        // Memory blocks that this process is using
+        private LinkedList<Block> memoryBlocks = new LinkedList<Block>(); 
+        private Random rng = new Random();
+        
+        private Color color = generateRandomColor(new Color(255,255,255));
+        Proc(int id) {
+            super(id);
+            time = rng.nextInt(1000);
+            int processSize = rng.nextInt(512);
+            setBackground(color);
+            this.id = id;
+            setLayout(new GridLayout(0,1));
+            resetBorder(Color.green);
+            timeLbl = new JLabel(time+"ms",JLabel.CENTER);
+            add(timeLbl);
+            add(new JLabel(processSize+"kB",JLabel.CENTER));
+            if(allocateMemory(this, processSize))
+                textArea.append("Process "+id+" allocated all memory");
+            else    
+                textArea.append("Process "+id+" could not allocate memory\n");
+        }
+        /**
+         * Finish the process by simulating its remaining time
+         * @throws InterruptedException 
+         */
+        private Color generateRandomColor(Color mix) {
+
+            Random random = new Random();
+            int red = random.nextInt(256);
+            int green = random.nextInt(256);
+            int blue = random.nextInt(256);
+
+            // mix the color
+            if (mix != null) {
+                red = (red + mix.getRed()) / 2;
+                green = (green + mix.getGreen()) / 2;
+                blue = (blue + mix.getBlue()) / 2;
+            }
+
+            Color color = new Color(red, green, blue);
+            return color;
+        }
+        private Color getColor() {
+            return color;
+        }
+        public void finish() throws InterruptedException {
+            takeTime(time);
+        }
+        public String toString() {
+            return String.format("%d,%d",id,time);
+        }
+
         /**
          * Subtract the time from this process, simulating the execution
          * by sleeping the current thread
@@ -489,9 +632,11 @@ class Main  extends JFrame{
             } else {
                 resetBorder(Color.green);
             }
-            timeLbl.setText(""+time);
-            if(time == 0)
+            timeLbl.setText(time+"ms");
+            if(time == 0) {
+                deallocateMemory(this);
                 return true;
+            }
             else
                 return false;
         }
