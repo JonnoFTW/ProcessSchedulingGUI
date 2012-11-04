@@ -33,6 +33,8 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.text.DefaultCaret;
 import javax.swing.JTabbedPane;
 import javax.swing.JSeparator;
+import javax.swing.JRadioButton;
+import javax.swing.ButtonGroup;
 
 /**
  * This is an application that simulates various process
@@ -72,6 +74,7 @@ class Main  extends JFrame{
     private Block[] memoryBlocks;
     private JPanel panel_memory;
     private JComboBox memoryAllocationAlg;
+    private final ButtonGroup buttonGroup = new ButtonGroup();
     
     /**
      * Run the application
@@ -100,7 +103,7 @@ class Main  extends JFrame{
         panel.setPreferredSize(new Dimension(900,900));
         setup.setPreferredSize(new Dimension(300,500));
         panel.add(setup, BorderLayout.EAST);
-        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][][][][][][grow]"));
+        setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][][][][grow][grow]"));
         
         JLabel lblSetup = new JLabel("Setup");
         setup.add(lblSetup, "cell 0 0");
@@ -207,22 +210,64 @@ class Main  extends JFrame{
         memoryAllocationAlg = new JComboBox(memoryAllocationAlgorithms);
         setup.add(memoryAllocationAlg, "cell 0 18,growx");
         
-        JLabel lblMemorySize = new JLabel("Memory Size (B)");
-        setup.add(lblMemorySize, "cell 0 19");
-        
         memorySizeModel = new SpinnerNumberModel(512,16,4096,8);
-        JSpinner spinner_memory_size = new JSpinner(memorySizeModel);
-        setup.add(spinner_memory_size, "cell 0 20,growx");
         
-        JLabel lblPageSize = new JLabel("Page Size (B)");
-        setup.add(lblPageSize, "cell 0 21");
+        JRadioButton rdbtnStaticMemory = new JRadioButton("Static");
+        buttonGroup.add(rdbtnStaticMemory);
+        setup.add(rdbtnStaticMemory, "flowx,cell 0 19,growx");
         
         pageSizeModel = new SpinnerNumberModel(8,1,Math.pow(2, 10),8);
+        
+        final JPanel panel_static = new JPanel();
+        setup.add(panel_static, "cell 0 20,grow");
+        panel_static.setLayout(new MigLayout("", "[63px][63px][][29px]", "[20px][]"));
+        
+        JLabel lblMemorySize = new JLabel("Memory Size (B)");
+        panel_static.add(lblMemorySize, "cell 0 0");
+        JSpinner spinner_memory_size = new JSpinner(memorySizeModel);
+        panel_static.add(spinner_memory_size, "flowy,cell 1 0 3 1,growx,aligny top");
+        
+        JLabel lblPageSize = new JLabel("Page Size (B)");
+        panel_static.add(lblPageSize, "cell 0 1,alignx left,aligny center");
         JSpinner spinner_page_size = new JSpinner(pageSizeModel);
-        setup.add(spinner_page_size, "cell 0 22,growx");
+        panel_static.add(spinner_page_size, "cell 1 1 3 1,growx,aligny top");
+        
+        final JPanel panel_dynamic = new JPanel();
+        setup.add(panel_dynamic, "cell 0 21,grow");
+        panel_dynamic.setLayout(new MigLayout("", "[][][]", "[][][][][]"));
+        
+        JLabel lblNnew = new JLabel("2");
+        panel_dynamic.add(lblNnew, "cell 0 0");
+        
+        JSpinner spinner = new JSpinner();
+        panel_dynamic.add(spinner, "cell 2 0,growx");
+        
+        JLabel lblNewLabel = new JLabel("4");
+        panel_dynamic.add(lblNewLabel, "cell 0 1");
+        
+        JSpinner spinner_3 = new JSpinner();
+        panel_dynamic.add(spinner_3, "cell 2 1,growx");
+        
+        JLabel lblNewLabel_1 = new JLabel("16");
+        panel_dynamic.add(lblNewLabel_1, "cell 0 2");
+        
+        JSpinner spinner_1 = new JSpinner();
+        panel_dynamic.add(spinner_1, "cell 2 2,growx");
+        
+        JLabel lblNewLabel_2 = new JLabel("32");
+        panel_dynamic.add(lblNewLabel_2, "cell 0 3");
+        
+        JSpinner spinner_2 = new JSpinner();
+        panel_dynamic.add(spinner_2, "flowy,cell 2 3,growx");
+        
+        JLabel lblNewLabel_3 = new JLabel("64");
+        panel_dynamic.add(lblNewLabel_3, "cell 0 4");
+        
+        JSpinner spinner_4 = new JSpinner();
+        panel_dynamic.add(spinner_4, "cell 2 4,growx");
         
         JScrollPane scrollPane = new JScrollPane();
-        setup.add(scrollPane, "cell 0 23,grow");
+        setup.add(scrollPane, "cell 0 22,grow");
         
         // Have a textarea for logging output
         textArea = new JTextArea();
@@ -230,6 +275,25 @@ class Main  extends JFrame{
         caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
         scrollPane.setViewportView(textArea);
         
+        final JRadioButton rdbtnDynamicMemory = new JRadioButton("Dynamic");
+        buttonGroup.add(rdbtnDynamicMemory);
+        setup.add(rdbtnDynamicMemory, "cell 0 19,growx");
+        
+        ActionListener memselect = new ActionListener() {
+            
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // TODO Auto-generated method stub
+                if(e.getSource() == rdbtnDynamicMemory){
+                    panel_dynamic.setVisible(true);
+                    panel_static.setVisible(false);
+                } else {
+                    panel_dynamic.setVisible(false);
+                    panel_static.setVisible(true);
+                }
+            }
+        };
+        rdbtnDynamicMemory.setSelected(true);
         JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
         panel.add(tabbedPane, BorderLayout.CENTER);
         
