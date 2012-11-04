@@ -66,7 +66,7 @@ class Main  extends JFrame{
     int last = 0;
     // The array of algorithm names is here for easy definition
     private String[] algStrings = { "Round Robin",  "FIFO", "SJF" };
-    private String[] memoryAllocationAlgorithms = {"First Fit", "Best Fit", "Worst Fit", "Next Fit"};
+    private String[] memoryAllocationAlgorithms = {"Single Block","First Fit", "Best Fit", "Worst Fit", "Next Fit"};
     private SpinnerNumberModel pageSizeModel;
     private SpinnerNumberModel memorySizeModel;
     private Block[] memoryBlocks;
@@ -77,7 +77,6 @@ class Main  extends JFrame{
      * Run the application
      */
     Main(){
-        System.out.println("got here");
         // Use the OS look and feel
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -295,7 +294,7 @@ class Main  extends JFrame{
                                 Proc p = it.next(); 
                                 last++;
                                 // If the process is finished, remove it from the list
-                                if(p.takeTime(quantum)){
+                                if(p.takeTime(quantum) || p.getTime() == 0){
                                     it.remove();
                                     last--;
                                 } 
@@ -337,7 +336,11 @@ class Main  extends JFrame{
                         while(it.hasNext()) {
                             if(isCancelled()) return null;
                             Proc p = it.next();
-                            if(p.time < shortest.time)
+                            if(p.getTime() == 0) {
+                                it.remove();
+                                continue;
+                            }
+                            if(p.getTime() < shortest.getTime())
                                 shortest = p;
                         }
                         shortest.finish();
@@ -376,7 +379,7 @@ class Main  extends JFrame{
      */
     private void addProcess(Proc p) {
         processList.add(p);
-        textArea.append("Added pid "+p.id+" with time "+p.time+"ms, size "+p.getProcessSize()+"B\n");
+        textArea.append("Added pid "+p.getId()+" with time "+p.getTime()+"ms, size "+p.getProcessSize()+"B\n");
         panel_processes.add(p);
         panel_processes.revalidate();
     }
@@ -434,22 +437,31 @@ class Main  extends JFrame{
         int toAllocate = bytes;
         switch (memoryAllocationAlg.getSelectedIndex()) {
         
-        case 0:
+        case 1:
             // Allocated memory using first fit
             for (Block b : memoryBlocks) {
                 if(b.allocatedTo == null) {
                     b.allocateTo(p);
                     p.memoryBlocks.add(b);
                     textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
-                    toAllocate -= b.getBytes();
+                    toAllocate -= b.getBlockSize();
                     if(toAllocate <= 0)
                         return true;
                 }
             }
             break;
-        case 1:
-            // best fit
-            break;
+        case 0:
+            // Single Block Fit
+            for (Block b : memoryBlocks) {
+                if(p.getProcessSize() <= b.getBlockSize() && b.allocatedTo == null) {
+                    b.allocateTo(p);
+                    p.memoryBlocks.add(b);
+                    return true;
+                }
+            }
+            // No block could be found to fit this process, so terminate it
+            p.terminate();
+            return false;
         case 2:
             // worst fit;
             break;
@@ -529,7 +541,7 @@ class Main  extends JFrame{
         /**
          * Return the number of bytes consumed by this block
          */
-        public int getBytes() {
+        public int getBlockSize() {
             return bytes.length;
         }
         public void allocateTo(Proc p) {
@@ -559,8 +571,8 @@ class Main  extends JFrame{
         private Color color = generateRandomColor(new Color(255,255,255));
         Proc(int id) {
             super(id);
-            time = rng.nextInt(1000);
-            processSize = rng.nextInt(64);
+            time = rng.nextInt(1000)+1;
+            processSize = rng.nextInt(64)+1;
             setBackground(color);
             this.id = id;
             setLayout(new GridLayout(0,1));
@@ -569,6 +581,9 @@ class Main  extends JFrame{
             add(timeLbl);
             add(new JLabel(processSize+"B",JLabel.CENTER));
             allocate();
+        }
+        public int getTime() {
+            return time;
         }
         private boolean allocate() {
             if(allocateMemory(this, processSize)) {
@@ -608,6 +623,15 @@ class Main  extends JFrame{
         private Color getColor() {
             return color;
         }
+        /**
+         * Terminates the process
+         */
+        public void terminate() {
+            time = 0;
+            deallocateMemory(this);
+            resetBorder(Color.blue);
+            textArea.append(String.format("Process %d was terminated\n",id));
+        }
         public void finish() throws InterruptedException {
             takeTime(time);
         }
@@ -623,6 +647,8 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
+            if(getTime() == 0)
+                return true;
             if(!allocated) {
                 // Attempt to get memory
                 if(!allocate())
