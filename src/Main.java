@@ -77,6 +77,7 @@ class Main  extends JFrame{
      * Run the application
      */
     Main(){
+        System.out.println("got here");
         // Use the OS look and feel
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -552,6 +553,7 @@ class Main  extends JFrame{
         private int time,id, processSize;
         // Memory blocks that this process is using
         private LinkedList<Block> memoryBlocks = new LinkedList<Block>(); 
+        private boolean allocated = true;
         private Random rng = new Random();
         
         private Color color = generateRandomColor(new Color(255,255,255));
@@ -566,12 +568,18 @@ class Main  extends JFrame{
             timeLbl = new JLabel(time+"ms",JLabel.CENTER);
             add(timeLbl);
             add(new JLabel(processSize+"B",JLabel.CENTER));
-            if(allocateMemory(this, processSize))
+            allocate();
+        }
+        private boolean allocate() {
+            if(allocateMemory(this, processSize)) {
+                allocated = true;
                 textArea.append("Process "+id+" allocated all memory\n");
-            else {
+            } else {
+                allocated = false;
                 textArea.append("Process "+id+" could not allocate memory\n");
                 deallocateMemory(this);
             }
+            return allocated;
         }
         private int getProcessSize() {
             return processSize;
@@ -615,6 +623,11 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
+            if(!allocated) {
+                // Attempt to get memory
+                if(!allocate())
+                    return false;
+            } 
             resetBorder(Color.red);
             time -= q;
             int sleep =q;
