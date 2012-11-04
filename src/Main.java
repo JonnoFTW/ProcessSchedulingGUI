@@ -568,8 +568,10 @@ class Main  extends JFrame{
             add(new JLabel(processSize+"B",JLabel.CENTER));
             if(allocateMemory(this, processSize))
                 textArea.append("Process "+id+" allocated all memory\n");
-            else    
+            else {
                 textArea.append("Process "+id+" could not allocate memory\n");
+                deallocateMemory(this);
+            }
         }
         private int getProcessSize() {
             return processSize;
