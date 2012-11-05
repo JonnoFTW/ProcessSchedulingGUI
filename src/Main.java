@@ -83,6 +83,7 @@ class Main  extends JFrame{
     private SpinnerNumberModel block16Model;
     private SpinnerNumberModel block32Model;
     private SpinnerNumberModel block64Model;
+    private int blockId;
     
     /**
      * Run the application
@@ -507,6 +508,7 @@ class Main  extends JFrame{
      */
     private void setupMemory() {
         panel_memory.removeAll();
+        
         if(rdbtnDynamicMemory.isSelected()) 
             setupMemoryDynamic();
         else
@@ -519,13 +521,13 @@ class Main  extends JFrame{
      * Sets up the memory with blocks of dynamic size
      */
     private void setupMemoryDynamic() {
+        blockId = 0;
         ArrayList<Block> blocks = new ArrayList<Main.Block>();
-        Integer id = new Integer(0);
-        addBlocksOfSize(2, block2Model.getNumber().intValue(), blocks,id);
-        addBlocksOfSize(4, block4Model.getNumber().intValue(), blocks,id);
-        addBlocksOfSize(16, block16Model.getNumber().intValue(), blocks,id);
-        addBlocksOfSize(32, block32Model.getNumber().intValue(), blocks,id);
-        addBlocksOfSize(64, block64Model.getNumber().intValue(), blocks,id);
+        addBlocksOfSize(2, block2Model.getNumber().intValue(), blocks);
+        addBlocksOfSize(4, block4Model.getNumber().intValue(), blocks);
+        addBlocksOfSize(16, block16Model.getNumber().intValue(), blocks);
+        addBlocksOfSize(32, block32Model.getNumber().intValue(), blocks);
+        addBlocksOfSize(64, block64Model.getNumber().intValue(), blocks);
         
         
         memoryBlocks = new Block[blocks.size()];
@@ -535,9 +537,9 @@ class Main  extends JFrame{
     }
     
     
-    private void addBlocksOfSize(int blockSize, int blockCount, ArrayList<Block> blocks, Integer id) {
+    private void addBlocksOfSize(int blockSize, int blockCount, ArrayList<Block> blocks) {
         for(int i = 0; i < blockCount; i++) {
-            blocks.add(new Block(id++,blockSize));
+            blocks.add(new Block(blockId++,blockSize));
         }
         textArea.append("Creating "+blockCount+" blocks of size "+blockSize+"B\n");
         
