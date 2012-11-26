@@ -1,17 +1,14 @@
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Map.Entry;
 import java.util.Random;
-import java.util.TreeMap;
-
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 
 import net.miginfocom.swing.MigLayout;
@@ -54,6 +51,7 @@ class Main  extends JFrame{
     /**
      * 
      */
+    
     private static final long serialVersionUID = -4166466089214148491L;
     // This is the time to run each process for
     private JPanel panel_processes;
@@ -73,7 +71,7 @@ class Main  extends JFrame{
     int last = 0;
     // The array of algorithm names is here for easy definition
     private String[] algStrings = { "Round Robin",  "FIFO", "SJF" };
-    private String[] memoryAllocationAlgorithms = {"First Fit","Divide", "Best Fit", "Worst Fit", "Next Fit"};
+    private String[] memoryAllocationAlgorithms = {"Best Fit","Partition", "First Fit", "Worst Fit", "Next Fit"};
     private SpinnerNumberModel pageSizeModel;
     private SpinnerNumberModel memorySizeModel;
     private Block[] memoryBlocks;
@@ -88,10 +86,14 @@ class Main  extends JFrame{
     private SpinnerNumberModel block32Model;
     private SpinnerNumberModel block64Model;
     private int blockId;
+    private JPanel panel_swap;
+    private Proc currentProcess = null;
+    private HDDCell[] swap = new HDDCell[20];
     
     /**
      * Run the application
      */
+    
     Main(){
         // Use the OS look and feel
         try {
@@ -110,11 +112,10 @@ class Main  extends JFrame{
         getContentPane().add(panel, BorderLayout.CENTER);
         panel.setLayout(new BorderLayout(0, 0));
         
-        // Have a panel on the right side that 
         // allows the user to configure the simulation
         JPanel setup = new JPanel();
         panel.setPreferredSize(new Dimension(900,900));
-        setup.setPreferredSize(new Dimension(350,500));
+        setup.setPreferredSize(new Dimension(300,500));
         panel.add(setup, BorderLayout.EAST);
         setup.setLayout(new MigLayout("", "[grow]", "[][][][][][][][][][][][][][][][][][][][][grow][][grow]"));
         
@@ -125,9 +126,11 @@ class Main  extends JFrame{
         JButton btnGenereateProcesses = new JButton("Reset");
         btnGenereateProcesses.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+
                 textArea.setText("");
                 setupMemory();
                 setupProcesses();
+                setupHDD();
             }
         });
         setup.add(btnGenereateProcesses, "cell 0 1,growx");
@@ -180,7 +183,13 @@ class Main  extends JFrame{
         
         processModel = new SpinnerNumberModel(10, 1, 100, 1);
         JSpinner processCount = new JSpinner(processModel);
-        
+        processCount.addChangeListener(new ChangeListener() {
+            
+            @Override
+            public void stateChanged(ChangeEvent arg0) {
+                setupProcesses();
+            }
+        });
         setup.add(processCount, "cell 0 9,growx");
         
         // New processes can be randomly added with a given probability
@@ -330,6 +339,10 @@ class Main  extends JFrame{
         panel_memory = new JPanel();
         tabbedPane.addTab("Memory", null, panel_memory, "The memory");
         panel_memory.setLayout(new GridLayout(0, 8, 4, 4));
+        
+        panel_swap = new JPanel();               
+        tabbedPane.addTab("Swap", null, panel_swap, "The Swap");
+        panel_swap.setLayout(new GridLayout(5, 4, 0, 0));
 
    //     setupProcesses();
             
@@ -341,6 +354,8 @@ class Main  extends JFrame{
          * to select which algorithm to run
          * 
          */
+       
+        
         private class Worker extends SwingWorker<Void, String> {
             Timer t;
             boolean addingA = true;
@@ -498,7 +513,6 @@ class Main  extends JFrame{
         for(int i = 0; i < procs; i++ ) {
             addProcess();
         }
-        panel_processes.revalidate();
     }
     /**
      * This will reset the memory
@@ -506,19 +520,30 @@ class Main  extends JFrame{
      */
     private void setupMemory() {
         panel_memory.removeAll();
-        
         if(rdbtnDynamicMemory.isSelected()) 
             setupMemoryDynamic();
         else
             setupMemoryStatic();
         for (int i = 0; i < memoryBlocks.length; i++) {
             panel_memory.add(memoryBlocks[i]);
-        }
-        panel_memory.revalidate();
+            }
     }
-    /**
+    
+    private void setupHDD() {
+        panel_swap.removeAll();
+        
+        for(int i =0;i < swap.length;i++) {
+            HDDCell hd = new HDDCell(i);
+            swap[i] = hd;
+            panel_swap.add(hd);
+        }
+        panel_swap.revalidate();
+    }
+    
+     /**
      * Sets up the memory with blocks of dynamic size
      */
+       
     private void setupMemoryDynamic() {
         blockId = 0;
         ArrayList<Block> blocks = new ArrayList<Main.Block>();
@@ -529,13 +554,19 @@ class Main  extends JFrame{
         addBlocksOfSize(64, block64Model.getNumber().intValue(), blocks);
         
         
+        
         memoryBlocks = new Block[blocks.size()];
         for (int i = 0; i < blocks.size(); i++) {
             memoryBlocks[i] = blocks.get(i);
         }
+        for (int i = 0; i < 20; i++) {
+            memoryBlocks[i] = blocks.get(i);
+        }
+        
+        
     }
     
-    
+     
     private void addBlocksOfSize(int blockSize, int blockCount, ArrayList<Block> blocks) {
         for(int i = 0; i < blockCount; i++) {
             blocks.add(new Block(blockId++,blockSize));
@@ -568,26 +599,25 @@ class Main  extends JFrame{
         switch (memoryAllocationAlg.getSelectedIndex()) {
         
         case 1:
-            // Divide Memory Up
-            TreeMap<Integer, LinkedList<Block>> memoryOfSize = new TreeMap<Integer, LinkedList<Block>>();
-            memoryOfSize.put(2, new LinkedList<Block>());
-            memoryOfSize.put(4, new LinkedList<Block>());
-            memoryOfSize.put(16, new LinkedList<Block>());
-            memoryOfSize.put(32, new LinkedList<Block>());
-            memoryOfSize.put(64, new LinkedList<Block>());
+            // Allocated memory using PARTICION
             for (Block b : memoryBlocks) {
                 if(b.allocatedTo == null) {
-                    memoryOfSize.get(b.getBlockSize()).add(b);
+                    b.allocateTo(p);
+                    
+                    p.memoryBlocks.add(b);
+                    textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
+                    toAllocate -= b.getBlockSize();
+                    if(toAllocate <= 0)
+                        return true;
                 }
-            }
-            
-            return recursivelyAllocateSmallest(memoryOfSize, p, toAllocate,64);            
-            
+       }
+            break;
         case 0:
-            // Single Block Fit
+            //BEST FIT
             for (Block b : memoryBlocks) {
                 if(p.getProcessSize() <= b.getBlockSize() && b.allocatedTo == null) {
-                    allocateBlock(p, b);
+                    b.allocateTo(p);
+                    p.memoryBlocks.add(b);
                     return true;
                 }
             }
@@ -595,7 +625,14 @@ class Main  extends JFrame{
             p.terminate();
             return false;
         case 2:
-            // worst fit;
+            //FIRST FIT
+            for (Block b : memoryBlocks) {
+                    b.allocateTo(p);
+                    p.memoryBlocks.add(b);
+                    return true;
+                }
+            // No block could be found to fit this process, so terminate it
+            p.terminate();
             break;
         case 3:
             // next fit
@@ -605,52 +642,6 @@ class Main  extends JFrame{
         }
         return false;
         
-    }
-    /**
-     * 
-     * @param memoryOfSize
-     * @param p
-     * @param toAllocate
-     * @return true if memory could be allocated, false otherwise
-     */
-    private boolean recursivelyAllocateSmallest(
-            TreeMap<Integer, LinkedList<Block>> memoryOfSize, Proc p,
-            int toAllocate, int maxBlockSize) {
-        if(toAllocate <= 0) 
-            return true;
-        if(memoryOfSize.get(maxBlockSize).isEmpty()){
-            switch (maxBlockSize) {
-            case 64:
-                maxBlockSize = 32;
-                break;
-            case 32:
-                maxBlockSize = 16;
-                break;
-            case 16:
-                maxBlockSize = 4;
-                break;
-            case 4:
-                maxBlockSize = 2;
-                break;
-            case 2:
-                return false;
-            default:
-                break;
-            }
-        }
-        for (Entry<Integer, LinkedList<Block>> sc : memoryOfSize.entrySet()) {
-            if((toAllocate <= sc.getKey() || sc.getKey() == maxBlockSize) && !sc.getValue().isEmpty()) {
-                Block b =  sc.getValue().pop();
-                allocateBlock(p,b);
-                return recursivelyAllocateSmallest(memoryOfSize, p, toAllocate-b.getBlockSize(),maxBlockSize);
-            }
-        }
-        return false;
-    }
-    private void allocateBlock(Proc p, Block b) {
-        b.allocateTo(p);
-        p.memoryBlocks.add(b);
-        textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
     }
     /** 
      * Removes the process' memory allocation. Memory is removed completely
@@ -673,8 +664,8 @@ class Main  extends JFrame{
         r.pack();
         r.setVisible(true);
     }
-    private class Cell extends JPanel {
-        protected JLabel timeLbl;
+    
+    public abstract class Cell extends JPanel { 
         protected JLabel idLbl;
         protected int id;
         Cell(int id) {
@@ -683,7 +674,7 @@ class Main  extends JFrame{
             idLbl = new JLabel(""+id,JLabel.CENTER);
             this.id = id;
             add(idLbl);
-        }
+        }    
         /**
          * 
          * @return the id of this process
@@ -700,10 +691,36 @@ class Main  extends JFrame{
         }
     }
     /**
-     * A block of memory
+     * A block on the HDD
      * @author Jonathan
      *
      */
+
+    private class HDDCell extends Cell {
+        private JLabel processLbl = new JLabel("",JLabel.CENTER);
+        private Proc storedProcess;
+        private int blockSize = 1024;
+        HDDCell(int id) {
+            super(id);
+            setLayout(new GridLayout(0,1));
+            
+            resetBorder(Color.green);
+            add(processLbl);
+        }
+        public void swapProcess(Proc p) {
+            storedProcess = p;
+            if(p == null) {
+                processLbl.setText("");
+                setToolTipText(String.format("HDD Block %d of size %d",id,blockSize ));
+            } else {
+                processLbl.setText(""+currentProcess.getId());
+                setToolTipText(String.format("HDD Block %d of size %d holding process %d",id,blockSize,storedProcess.getId() ));
+            }
+        }
+    }
+    
+    
+    
     private class Block extends Cell {
         private Proc allocatedTo = null;
         private JLabel processLbl = new JLabel("",JLabel.CENTER);
@@ -742,6 +759,7 @@ class Main  extends JFrame{
      * These are all managed internally.
      */
     private class Proc extends Cell{
+        private JLabel timeLbl;
         private static final long serialVersionUID = -2070799490577412344L;
         private int time,id, processSize;
         // Memory blocks that this process is using
@@ -753,7 +771,8 @@ class Main  extends JFrame{
         Proc(int id) {
             super(id);
             time = rng.nextInt(1000)+1;
-            processSize = rng.nextInt(512)+1;
+            processSize = rng.nextInt(64)+1;
+            setToolTipText(String.format("Process %d of size %dB",id,processSize));
             setBackground(color);
             this.id = id;
             setLayout(new GridLayout(0,1));
@@ -828,9 +847,13 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
+            HDDCell b=null;
+            currentProcess = this;
+            textArea.append("Process "+currentProcess+"");
             if(getTime() == 0)
                 return true;
             if(!allocated) {
+                resetBorder(Color.red);
                 // Attempt to get memory
                 if(!allocate())
                     return false;
@@ -853,12 +876,15 @@ class Main  extends JFrame{
             }
             textArea.append("Process "+id+" executed for: "+sleep+"ms\n");
             if(time <= 0) {
+                
                 resetBorder(Color.black);
                 textArea.append("Process "+id+" finished\n");
                 time = 0;
             } else {
                 resetBorder(Color.green);
             }
+
+            currentProcess =null;
             timeLbl.setText(time+"ms");
             if(time == 0) {
                 deallocateMemory(this);
