@@ -3,12 +3,15 @@ import java.util.ConcurrentModificationException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Dimension;
 
 import net.miginfocom.swing.MigLayout;
@@ -36,7 +39,6 @@ import javax.swing.JTabbedPane;
 import javax.swing.JSeparator;
 import javax.swing.JRadioButton;
 import javax.swing.ButtonGroup;
-import javax.swing.BoxLayout;
 
 /**
  * This is an application that simulates various process
@@ -552,18 +554,10 @@ class Main  extends JFrame{
         addBlocksOfSize(16, block16Model.getNumber().intValue(), blocks);
         addBlocksOfSize(32, block32Model.getNumber().intValue(), blocks);
         addBlocksOfSize(64, block64Model.getNumber().intValue(), blocks);
-        
-        
-        
         memoryBlocks = new Block[blocks.size()];
         for (int i = 0; i < blocks.size(); i++) {
             memoryBlocks[i] = blocks.get(i);
-        }
-        for (int i = 0; i < 20; i++) {
-            memoryBlocks[i] = blocks.get(i);
-        }
-        
-        
+        }        
     }
     
      
@@ -635,13 +629,73 @@ class Main  extends JFrame{
             p.terminate();
             break;
         case 3:
-            // next fit
-            break;
+            // resursive fit
+            // Divide Memory Up
+            TreeMap<Integer, LinkedList<Block>> memoryOfSize = new TreeMap<Integer, LinkedList<Block>>();
+            memoryOfSize.put(2, new LinkedList<Block>());
+            memoryOfSize.put(4, new LinkedList<Block>());
+            memoryOfSize.put(16, new LinkedList<Block>());
+            memoryOfSize.put(32, new LinkedList<Block>());
+            memoryOfSize.put(64, new LinkedList<Block>());
+            for (Block b : memoryBlocks) {
+                if(b.allocatedTo == null) {
+                    memoryOfSize.get(b.getBlockSize()).add(b);
+                }
+            }
+            
+            return recursivelyAllocateSmallest(memoryOfSize, p, toAllocate,64);            
+            
         default:
             break;
         }
         return false;
         
+    }
+    /**
+     * 
+     * @param memoryOfSize
+     * @param p
+     * @param toAllocate
+     * @return true if memory could be allocated, false otherwise
+     */
+    private boolean recursivelyAllocateSmallest(
+            TreeMap<Integer, LinkedList<Block>> memoryOfSize, Proc p,
+            int toAllocate, int maxBlockSize) {
+        if(toAllocate <= 0) 
+            return true;
+        if(memoryOfSize.get(maxBlockSize).isEmpty()){
+            switch (maxBlockSize) {
+            case 64:
+                maxBlockSize = 32;
+                break;
+            case 32:
+                maxBlockSize = 16;
+                break;
+            case 16:
+                maxBlockSize = 4;
+                break;
+            case 4:
+                maxBlockSize = 2;
+                break;
+            case 2:
+                return false;
+            default:
+                break;
+            }
+        }
+        for (Entry<Integer, LinkedList<Block>> sc : memoryOfSize.entrySet()) {
+            if((toAllocate <= sc.getKey() || sc.getKey() == maxBlockSize) && !sc.getValue().isEmpty()) {
+                Block b =  sc.getValue().pop();
+                allocateBlock(p,b);
+                return recursivelyAllocateSmallest(memoryOfSize, p, toAllocate-b.getBlockSize(),maxBlockSize);
+            }
+        }
+        return false;
+    }
+    private void allocateBlock(Proc p, Block b) {
+        b.allocateTo(p);
+        p.memoryBlocks.add(b);
+        textArea.append(String.format("Process %d allocated block %d\n", p.getId(),b.getId()));
     }
     /** 
      * Removes the process' memory allocation. Memory is removed completely
@@ -707,6 +761,10 @@ class Main  extends JFrame{
             resetBorder(Color.green);
             add(processLbl);
         }
+        /**
+         * Store a process in this hdd space
+         * @param p
+         */
         public void swapProcess(Proc p) {
             storedProcess = p;
             if(p == null) {
@@ -760,10 +818,13 @@ class Main  extends JFrame{
      */
     private class Proc extends Cell{
         private JLabel timeLbl;
+        private boolean inMemory = true; // If it's not in memory it must be in swap. All processes start in memory
         private static final long serialVersionUID = -2070799490577412344L;
         private int time,id, processSize;
         // Memory blocks that this process is using
         private LinkedList<Block> memoryBlocks = new LinkedList<Block>(); 
+        // A list of child processes
+        private TreeSet<Proc> childProcesses = new TreeSet<Main.Proc>();
         private boolean allocated = true;
         private Random rng = new Random();
         
@@ -784,6 +845,12 @@ class Main  extends JFrame{
         }
         public int getTime() {
             return time;
+        }
+        public void addChildProcess(Proc p) {
+            childProcesses.add(p);
+        }
+        public TreeSet<Proc> getChildProcesses() {
+            return childProcesses;
         }
         private boolean allocate() {
             if(allocateMemory(this, processSize)) {
@@ -847,7 +914,9 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
-            HDDCell b=null;
+            if(inMemory){
+                swapIn(this);
+            }
             currentProcess = this;
             textArea.append("Process "+currentProcess+"");
             if(getTime() == 0)
@@ -888,10 +957,27 @@ class Main  extends JFrame{
             timeLbl.setText(time+"ms");
             if(time == 0) {
                 deallocateMemory(this);
+                swapOut(this);
                 return true;
             }
             else
                 return false;
         }
+    }
+    public void swapOut(Proc proc) {
+        // TODO Auto-generated method stub
+        for (Proc p : proc.getChildProcesses()) {
+            swapOut(p);
+        }
+        textArea.append("Swapping out process "+proc.getId());
+        // Find space in swap[] and call swapProcess if it doesn't already have a process in it
+    }
+    public void swapIn(Proc proc) {
+        // TODO Auto-generated method stub
+        for (Proc p : proc.getChildProcesses()) {
+            swapIn(p);
+        }
+        textArea.append("Swapping in process "+proc.getId());
+        // Find proc in swap[] and call allocateMemory on it
     }
 }
