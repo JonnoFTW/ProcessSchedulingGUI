@@ -515,11 +515,12 @@ class Main  extends JFrame{
         int procs = processModel.getNumber().intValue();
         processList.clear();
         panel_processes.removeAll();
+
+        panel_processes.revalidate();
         
         for(int i = 0; i < procs; i++ ) {
             addProcess();
         }
-        panel_processes.revalidate();
     }
     /**
      * This will reset the memory
@@ -709,10 +710,11 @@ class Main  extends JFrame{
      */
     private void deallocateMemory(Proc p) {
         for (Block i : p.memoryBlocks) {
-            textArea.append(String.format("Block %d deallocated from process %d\n", i.getId(),p.getId()));
+            textArea.append(String.format("Mem. Block %d deallocated from process %d\n", i.getId(),p.getId()));
             i.setBackground(Color.LIGHT_GRAY);
             i.allocateTo(null);
         }
+        p.memoryBlocks.clear();
     }
     /**
      * This runs the process
@@ -977,15 +979,14 @@ class Main  extends JFrame{
             }
         }
         public void setInMemory(boolean b) {
-            // TODO Auto-generated method stub
-            inMemory = true;
+            inMemory = b;
         }
         public boolean getInMemory() {
             return inMemory;
         }
     }
     /**
-     * 
+     * Move a process into swap
      * @param proc
      * @return true if the process is loaded onto hdd
      */
@@ -1035,7 +1036,7 @@ class Main  extends JFrame{
                 }
             }
         }
-        textArea.append("Swap is full, process "+proc.getId()+" was not swapped into memory\n");
+        textArea.append("Memory is full or proc not in swap, process "+proc.getId()+" was not swapped into memory\n");
         return false;
     }
     /**
