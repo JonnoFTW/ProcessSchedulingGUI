@@ -89,7 +89,6 @@ class Main  extends JFrame{
     private SpinnerNumberModel block64Model;
     private int blockId;
     private JPanel panel_swap;
-    private Proc currentProcess = null;
     private HDDCell[] swap = new HDDCell[20];
     
     /**
@@ -129,10 +128,7 @@ class Main  extends JFrame{
         btnGenereateProcesses.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
 
-                textArea.setText("");
-                setupMemory();
-                setupProcesses();
-                setupHDD();
+                resetSimulation();
             }
         });
         setup.add(btnGenereateProcesses, "cell 0 1,growx");
@@ -174,7 +170,7 @@ class Main  extends JFrame{
         algorithmSelect = new JComboBox(algStrings);
         algorithmSelect.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent arg0) {
-                setupProcesses();
+                resetSimulation();
             }
         });
         setup.add(algorithmSelect, "cell 0 7,growx");
@@ -189,7 +185,7 @@ class Main  extends JFrame{
             
             @Override
             public void stateChanged(ChangeEvent arg0) {
-                setupProcesses();
+                resetSimulation();
             }
         });
         setup.add(processCount, "cell 0 9,growx");
@@ -344,7 +340,7 @@ class Main  extends JFrame{
         
         panel_swap = new JPanel();               
         tabbedPane.addTab("Swap", null, panel_swap, "The Swap");
-        panel_swap.setLayout(new GridLayout(5, 4, 0, 0));
+        panel_swap.setLayout(new GridLayout(5, 4, 4, 4));
 
    //     setupProcesses();
             
@@ -376,6 +372,14 @@ class Main  extends JFrame{
                     public void actionPerformed(ActionEvent arg0) {
                         Random rng = new Random();
                         if(rng.nextInt(100) <= newProcProbModel.getNumber().intValue()) {
+                            // If Swap is full, do not add more processes
+                            int taken = 0;
+                            for (int i = 0; i < swap.length; i++) {
+                                if(swap[i] != null)
+                                    taken++;
+                            }
+                            if(taken == swap.length-1)
+                                return;
                             if(addingA) {
                                 waitingProcessA.add(addProcess());
                             } else{
@@ -515,6 +519,7 @@ class Main  extends JFrame{
         for(int i = 0; i < procs; i++ ) {
             addProcess();
         }
+        panel_processes.revalidate();
     }
     /**
      * This will reset the memory
@@ -528,7 +533,8 @@ class Main  extends JFrame{
             setupMemoryStatic();
         for (int i = 0; i < memoryBlocks.length; i++) {
             panel_memory.add(memoryBlocks[i]);
-            }
+        }
+        panel_memory.revalidate();
     }
     
     private void setupHDD() {
@@ -753,12 +759,18 @@ class Main  extends JFrame{
     private class HDDCell extends Cell {
         private JLabel processLbl = new JLabel("",JLabel.CENTER);
         private Proc storedProcess;
+        /**
+         * @return the storedProcess
+         */
+        public Proc getStoredProcess() {
+            return storedProcess;
+        }
         private int blockSize = 1024;
         HDDCell(int id) {
             super(id);
             setLayout(new GridLayout(0,1));
-            
-            resetBorder(Color.green);
+            swapProcess(null);
+            resetBorder(Color.black);
             add(processLbl);
         }
         /**
@@ -770,9 +782,12 @@ class Main  extends JFrame{
             if(p == null) {
                 processLbl.setText("");
                 setToolTipText(String.format("HDD Block %d of size %d",id,blockSize ));
+                setBackground(UIManager.getColor ( "Panel.background" ));
             } else {
-                processLbl.setText(""+currentProcess.getId());
-                setToolTipText(String.format("HDD Block %d of size %d holding process %d",id,blockSize,storedProcess.getId() ));
+                processLbl.setText("PID: "+storedProcess.getId());
+                textArea.append("Swap block "+getId()+" storing process "+storedProcess.getId()+"\n");
+                setToolTipText(String.format("HDD Block %d of size %d holding process %d",id,blockSize,storedProcess.getId()));
+                setBackground(p.getColor());
             }
         }
     }
@@ -806,7 +821,7 @@ class Main  extends JFrame{
                 processLbl.setText("");
                 setBackground(UIManager.getColor ( "Panel.background" ));
             } else {
-                processLbl.setText(""+p.getId());
+                processLbl.setText("PID:"+p.getId());
                 setBackground(p.getColor());
             }
         }
@@ -859,6 +874,7 @@ class Main  extends JFrame{
             } else {
                 allocated = false;
                 textArea.append("Process "+id+" could not allocate memory\n");
+                swapOut(this);
                 deallocateMemory(this);
             }
             return allocated;
@@ -914,11 +930,9 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
-            if(inMemory){
+            if(!inMemory){
                 swapIn(this);
             }
-            currentProcess = this;
-            textArea.append("Process "+currentProcess+"");
             if(getTime() == 0)
                 return true;
             if(!allocated) {
@@ -953,31 +967,85 @@ class Main  extends JFrame{
                 resetBorder(Color.green);
             }
 
-            currentProcess =null;
             timeLbl.setText(time+"ms");
             if(time == 0) {
                 deallocateMemory(this);
-                swapOut(this);
                 return true;
-            }
-            else
+            } else {
+                swapOut(this);
                 return false;
+            }
+        }
+        public void setInMemory(boolean b) {
+            // TODO Auto-generated method stub
+            inMemory = true;
+        }
+        public boolean getInMemory() {
+            return inMemory;
         }
     }
-    public void swapOut(Proc proc) {
+    /**
+     * 
+     * @param proc
+     * @return true if the process is loaded onto hdd
+     */
+    public boolean swapOut(Proc proc) {
         // TODO Auto-generated method stub
         for (Proc p : proc.getChildProcesses()) {
             swapOut(p);
         }
-        textArea.append("Swapping out process "+proc.getId());
+        if(!proc.getInMemory())
+            return true;
+        textArea.append("Swapping out process "+proc.getId()+"\n");
         // Find space in swap[] and call swapProcess if it doesn't already have a process in it
+        for (HDDCell h : swap) {
+            if(h.getStoredProcess() == null) {
+                h.swapProcess(proc);
+                proc.setInMemory(false);
+                deallocateMemory(proc);
+                return true;
+            }
+        }
+        textArea.append("Could not swap out process "+proc.getId()+"\n");
+        return false;
+        
     }
-    public void swapIn(Proc proc) {
-        // TODO Auto-generated method stub
+    /**
+     * Swap a process into memory
+     * @param proc
+     * @return true if the process is in memory  
+     */
+    public boolean swapIn(Proc proc) {
         for (Proc p : proc.getChildProcesses()) {
             swapIn(p);
         }
-        textArea.append("Swapping in process "+proc.getId());
+        if(proc.getInMemory())
+            return true;
         // Find proc in swap[] and call allocateMemory on it
+        for(HDDCell h : swap) {
+            if(h.getStoredProcess() == proc) {
+                textArea.append("Swapping in process "+proc.getId()+"\n");
+                if(allocateMemory(proc,proc.getProcessSize())) {
+                    h.swapProcess(null);
+                    proc.setInMemory(true);
+                    return true;
+                } else {
+                    proc.setInMemory(false);
+                    break;
+                }
+            }
+        }
+        textArea.append("Swap is full, process "+proc.getId()+" was not swapped into memory\n");
+        return false;
+    }
+    /**
+     * 
+     */
+    private void resetSimulation() {
+        textArea.setText("");
+        setupMemory();
+        setupHDD();
+        setupProcesses();
+        
     }
 }
