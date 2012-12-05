@@ -7,6 +7,8 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -39,6 +41,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JSeparator;
 import javax.swing.JRadioButton;
 import javax.swing.ButtonGroup;
+
 
 /**
  * This is an application that simulates various process
@@ -90,6 +93,12 @@ class Main  extends JFrame{
     private int blockId;
     private JPanel panel_swap;
     private HDDCell[] swap = new HDDCell[20];
+    private DiscCell discCell1;
+    private DiscCell discCell2;
+    private PrinterCell printerCell;
+    private JPanel panel_IO;
+
+    private Random rng = new Random();
     
     /**
      * Run the application
@@ -341,6 +350,10 @@ class Main  extends JFrame{
         panel_swap = new JPanel();               
         tabbedPane.addTab("Swap", null, panel_swap, "The Swap");
         panel_swap.setLayout(new GridLayout(5, 4, 4, 4));
+        
+        panel_IO = new JPanel();
+        tabbedPane.addTab("IO Devices", null, panel_IO, "IO devices");
+        panel_IO.setLayout(new GridLayout(1, 0, 4, 4));
 
    //     setupProcesses();
             
@@ -537,7 +550,9 @@ class Main  extends JFrame{
         }
         panel_memory.revalidate();
     }
-    
+    /**
+     * Initialises the HDD
+     */
     private void setupHDD() {
         panel_swap.removeAll();
         
@@ -547,6 +562,21 @@ class Main  extends JFrame{
             panel_swap.add(hd);
         }
         panel_swap.revalidate();
+    }
+    /**
+     * Initialises IO devices
+     */
+    private void setupIO() {
+        panel_IO.removeAll();
+        printerCell = new PrinterCell(0);
+        discCell1 = new DiscCell(0);
+        discCell2 = new DiscCell(1);
+        panel_IO.add(printerCell);
+        panel_IO.add(discCell1);
+        panel_IO.add(discCell2);
+        panel_IO.revalidate();
+        
+        
     }
     
      /**
@@ -752,6 +782,127 @@ class Main  extends JFrame{
             setBorder(BorderFactory.createLineBorder(c, 3));
         }
     }
+    
+    public class PrinterCell extends IOCell {
+
+        private JLabel processLbl = new JLabel("PID: ",JLabel.CENTER);
+        PrinterCell(int id) {
+            super(id);
+            add(new JLabel("Printer",JLabel.CENTER));
+            add(processLbl);
+            resetBorder(Color.black);
+            add(new JLabel());
+            new Thread(new IORunner()).start();
+        }
+        private class IORunner implements Runnable {
+
+            private int delayFactor = delayModel.getNumber().intValue();
+            @Override
+            public void run() {
+                for(;;){
+                    Proc p = null;
+                    try {
+                        p = queue.take();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    processLbl.setText("P: "+p.getId());
+                    int ioTime = rng.nextInt(1000)+200;
+                    try {
+                        resetBorder(Color.green);
+                        setBackground(p.getColor());
+                        textArea.append(String.format("Printer %d executing process %d's IO for %dms\n",getId(),p.getId(),ioTime));
+                        Thread.sleep(ioTime*delayFactor);
+                        textArea.append(String.format("Printer %d finished %d's IO\n",getId(),p.getId()));
+                        p.waitingForIO= false;
+                        processLbl.setText("PID: ");
+                        setBackground(UIManager.getColor ( "Panel.background" ));
+                        resetBorder(Color.black);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+    private abstract class IOCell extends Cell {
+
+        protected LinkedBlockingQueue<Proc> queue = new LinkedBlockingQueue<Main.Proc>(); 
+        IOCell(int id) {
+            super(id);
+            
+        }
+        public void enqueue(Proc p) {
+            try {
+                queue.put(p);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        
+    }
+    public class DiscCell extends IOCell {
+
+        private JLabel processLbl1,processLbl2;
+        
+        private Proc proc1 = null;
+        private Proc proc2 = null;
+        DiscCell(int id) {
+            super(id);
+            add(new JLabel("Disc",JLabel.CENTER));
+            processLbl1 = new JLabel("P1: ",JLabel.CENTER);
+            processLbl2 = new JLabel("P2: ",JLabel.CENTER);
+            add(processLbl1);
+            add(processLbl2);
+            resetBorder(Color.black);
+            new Thread(new IORunner()).start();
+            new Thread(new IORunner()).start();
+        }
+        private class IORunner implements Runnable {
+
+            private int delayFactor = delayModel.getNumber().intValue();
+            @Override
+            public void run() {
+                for(;;){
+                    Proc p = null;
+                    try {
+                        p = queue.take();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    if(proc1 == null) {
+                        proc1 = p;
+                        processLbl1.setText("P1: "+p.getId());
+                    }
+                    else if(proc2 == null) {
+                        proc2 = p;
+                        processLbl2.setText("P2: "+p.getId());
+                    }
+                    int ioTime = rng.nextInt(1000)+500;
+                    try {
+                        textArea.append(String.format("Disc %d executing process %d's IO for %dms\n",getId(),p.getId(),ioTime));
+                        Thread.sleep(ioTime*delayFactor);
+                        p.waitingForIO = false;
+                        if(proc1 != null && proc1.waitingForIO == false) {
+                            proc1 = null;
+                            processLbl1.setText("P1: ");
+                        }
+                        else if(proc2 != null && proc2.waitingForIO == false) {
+                            proc2 = null;
+                            processLbl2.setText("P2: ");
+                        }
+                        textArea.append(String.format("Disc %d finished %d's IO\n",getId(),p.getId()));
+                        resetBorder(Color.black);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+    
+    
+    
     /**
      * A block on the HDD
      * @author Jonathan
@@ -770,7 +921,6 @@ class Main  extends JFrame{
         private int blockSize = 1024;
         HDDCell(int id) {
             super(id);
-            setLayout(new GridLayout(0,1));
             swapProcess(null);
             resetBorder(Color.black);
             add(processLbl);
@@ -798,8 +948,9 @@ class Main  extends JFrame{
     
     private class Block extends Cell {
         private Proc allocatedTo = null;
-        private JLabel processLbl = new JLabel("",JLabel.CENTER);
+        private JLabel processLbl = new JLabel("PID: ",JLabel.CENTER);
         private JLabel sizeLbl = new JLabel("",JLabel.CENTER);
+
         // A block of bytes for use later
         private byte[] bytes;
         Block(int id, int bytesUsed) {
@@ -835,6 +986,7 @@ class Main  extends JFrame{
      */
     private class Proc extends Cell{
         private JLabel timeLbl;
+        public boolean waitingForIO = false;
         private boolean inMemory = true; // If it's not in memory it must be in swap. All processes start in memory
         private static final long serialVersionUID = -2070799490577412344L;
         private int time,id, processSize;
@@ -843,7 +995,6 @@ class Main  extends JFrame{
         // A list of child processes
         private TreeSet<Proc> childProcesses = new TreeSet<Main.Proc>();
         private boolean allocated = true;
-        private Random rng = new Random();
         
         private Color color = generateRandomColor(new Color(255,255,255));
         Proc(int id) {
@@ -932,6 +1083,10 @@ class Main  extends JFrame{
          * 
          */
         public boolean takeTime(int q)  {
+            if(waitingForIO) {
+                textArea.append(String.format("Process %d is waiting for IO, not run", id));
+                return false;
+            }
             if(!inMemory){
                 swapIn(this);
             }
@@ -951,6 +1106,23 @@ class Main  extends JFrame{
                 if(time <= 0) {
                     sleep += time;
                     Thread.sleep((time+q)*delayFactor);
+                    int r = rng.nextInt(100);
+                    if(r < 25) {
+                        // Do some disc IO
+                        DiscCell d = null;
+                        if(rng.nextBoolean())
+                            d = discCell1;
+                        else
+                            d = discCell2;
+                        textArea.append(String.format("Process %d requesting disc IO on disc %d\n", getId(),d.getId()));
+                        d.enqueue(this);
+                        waitingForIO = true;
+                    } else if(r < 50) {
+                        // Do some printer IO
+                        textArea.append(String.format("Process %d requesting printer IO\n", getId()));
+                        printerCell.enqueue(this);
+                        waitingForIO = true;
+                    }
                 } else {
                     Thread.sleep(q*delayFactor);
                 }
@@ -991,7 +1163,6 @@ class Main  extends JFrame{
      * @return true if the process is loaded onto hdd
      */
     public boolean swapOut(Proc proc) {
-        // TODO Auto-generated method stub
         for (Proc p : proc.getChildProcesses()) {
             swapOut(p);
         }
@@ -1046,7 +1217,9 @@ class Main  extends JFrame{
         textArea.setText("");
         setupMemory();
         setupHDD();
+        setupIO();
         setupProcesses();
         
     }
+
 }
