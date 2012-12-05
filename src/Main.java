@@ -1084,7 +1084,7 @@ class Main  extends JFrame{
          */
         public boolean takeTime(int q)  {
             if(waitingForIO) {
-                textArea.append(String.format("Process %d is waiting for IO, not run", id));
+                textArea.append(String.format("Process %d is waiting for IO, not run\n", id));
                 return false;
             }
             if(!inMemory){
@@ -1106,6 +1106,8 @@ class Main  extends JFrame{
                 if(time <= 0) {
                     sleep += time;
                     Thread.sleep((time+q)*delayFactor);
+                } else {
+                    Thread.sleep(q*delayFactor);
                     int r = rng.nextInt(100);
                     if(r < 25) {
                         // Do some disc IO
@@ -1123,8 +1125,6 @@ class Main  extends JFrame{
                         printerCell.enqueue(this);
                         waitingForIO = true;
                     }
-                } else {
-                    Thread.sleep(q*delayFactor);
                 }
             } catch (InterruptedException e) {
                 // Reset colour when sleep is interrupted,
